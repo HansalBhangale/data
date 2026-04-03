@@ -15,7 +15,16 @@ delete_portfolio    — Remove a portfolio by ID with ownership check (portfolio
 
 from .auth import login_user, register_user
 from .db import get_db
-from .portfolio_db import delete_portfolio, get_user_portfolios, save_portfolio
+from .portfolio_db import (
+    delete_portfolio,
+    get_user_portfolios,
+    get_portfolios_needing_rebalance,
+    get_rebalance_history,
+    record_rebalance_history,
+    save_portfolio,
+    update_portfolio,
+    update_rebalance_settings,
+)
 
 __all__ = [
     "get_db",
@@ -24,4 +33,9 @@ __all__ = [
     "save_portfolio",
     "get_user_portfolios",
     "delete_portfolio",
+    "update_portfolio",
+    "get_portfolios_needing_rebalance",
+    "get_rebalance_history",
+    "record_rebalance_history",
+    "update_rebalance_settings",
 ]

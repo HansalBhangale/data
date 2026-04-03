@@ -18,7 +18,22 @@ Schema
     n_holdings       : int
     allocations      : list[dict]
     buckets          : list
+    bucket_weights   : list[float]
     backtest_summary : dict
+    rebalance_settings: {
+        auto_rebalance     : bool
+        rebalance_frequency: str  ("quarterly", "monthly", "manual")
+        last_rebalanced   : datetime
+        rebalance_threshold: float
+    }
+    rebalance_history: [
+        {
+            date              : datetime
+            stocks_replaced   : [{"ticker": str, "composite_score": float}]
+            stocks_added      : [{"ticker": str, "composite_score": float}]
+            reason            : str  ("scheduled" or "risk_profile_change")
+        }
+    ]
 }
 
 backtest_summary sub-document
@@ -37,6 +52,7 @@ backtest_summary sub-document
 
 import logging
 from datetime import datetime, timezone
+from typing import Dict, List
 
 from bson import ObjectId
 from bson.errors import InvalidId
@@ -164,9 +180,18 @@ def save_portfolio(
     cash_weight = portfolio.get("cash_weight", 0.0)
     n_holdings = portfolio.get("n_holdings", len(allocations))
     buckets = portfolio.get("buckets", [])
+    bucket_weights = portfolio.get("bucket_weights", [])
 
     # ---- Build serializable backtest summary --------------------------------
     backtest_summary = _build_backtest_summary(backtest)
+
+    # ---- Default rebalance settings ------------------------------------------
+    rebalance_settings = {
+        "auto_rebalance": False,
+        "rebalance_frequency": "quarterly",
+        "last_rebalanced": datetime.now(timezone.utc),
+        "rebalance_threshold": 0.05,
+    }
 
     # ---- Assemble document -------------------------------------------------
     portfolio_doc = {
@@ -181,7 +206,9 @@ def save_portfolio(
         "n_holdings": int(n_holdings),
         "allocations": allocations,
         "buckets": buckets,
+        "bucket_weights": bucket_weights,
         "backtest_summary": backtest_summary,
+        "rebalance_settings": rebalance_settings,
     }
 
     try:
@@ -320,3 +347,326 @@ def delete_portfolio(portfolio_id: str, user_id: str) -> dict:
             "success": False,
             "error": "An unexpected error occurred while deleting.",
         }
+
+
+def update_portfolio(
+    portfolio_id: str,
+    user_id: str,
+    allocations: List[Dict],
+    rebalance_settings: Dict = None,
+) -> dict:
+    """
+    Update portfolio allocations and/or rebalance settings.
+
+    Parameters
+    ----------
+    portfolio_id : str
+        MongoDB ObjectId string of the portfolio.
+    user_id : str
+        MongoDB ObjectId string of the owning user.
+    allocations : list[dict]
+        New allocations list.
+    rebalance_settings : dict, optional
+        New rebalance settings. If not provided, the existing settings are kept.
+
+    Returns
+    -------
+    dict
+        {"success": True} on success, or {"success": False, "error": str} on failure.
+    """
+    if not portfolio_id:
+        return {"success": False, "error": "portfolio_id is required."}
+    if not user_id:
+        return {"success": False, "error": "user_id is required."}
+
+    try:
+        oid = ObjectId(portfolio_id)
+    except (InvalidId, Exception):
+        return {"success": False, "error": "Invalid portfolio ID format."}
+
+    db = get_db()
+    if db is None:
+        return {"success": False, "error": "Database connection unavailable."}
+
+    update_fields = {
+        "allocations": allocations,
+        "n_holdings": len(allocations),
+    }
+
+    if rebalance_settings:
+        update_fields["rebalance_settings"] = rebalance_settings
+
+    try:
+        result = db[PORTFOLIOS_COLLECTION].update_one(
+            {"_id": oid, "user_id": user_id},
+            {"$set": update_fields}
+        )
+
+        if result.matched_count == 0:
+            return {
+                "success": False,
+                "error": "Portfolio not found or you do not have permission to update it.",
+            }
+
+        logger.info("Portfolio updated — id: %s  user: %s", portfolio_id, user_id)
+        return {"success": True}
+
+    except PyMongoError as exc:
+        logger.error("Database error updating portfolio %s for user %s: %s", portfolio_id, user_id, exc)
+        return {
+            "success": False,
+            "error": "A database error occurred while updating. Please try again.",
+        }
+    except Exception as exc:  # noqa: BLE001
+        logger.error("Unexpected error updating portfolio %s: %s", portfolio_id, exc)
+        return {
+            "success": False,
+            "error": "An unexpected error occurred while updating.",
+        }
+
+
+def get_portfolios_needing_rebalance(user_id: str, days_threshold: int = 90) -> list:
+    """
+    Get portfolios that haven't been rebalanced within the specified days.
+
+    Parameters
+    ----------
+    user_id : str
+        MongoDB ObjectId string of the user.
+    days_threshold : int
+        Number of days after which rebalancing is recommended (default 90).
+
+    Returns
+    -------
+    list[dict]
+        List of portfolio documents that need rebalancing.
+    """
+    if not user_id:
+        logger.warning("get_portfolios_needing_rebalance called with empty user_id.")
+        return []
+
+    db = get_db()
+    if db is None:
+        logger.error("Database connection unavailable when checking rebalance.")
+        return []
+
+    try:
+        from datetime import timedelta
+        threshold_date = datetime.now(timezone.utc) - timedelta(days=days_threshold)
+
+        cursor = db[PORTFOLIOS_COLLECTION].find({
+            "user_id": user_id,
+            "$or": [
+                {"rebalance_settings.last_rebalanced": {"$lt": threshold_date}},
+                {"rebalance_settings.last_rebalanced": {"$exists": False}},
+            ]
+        }).sort("created_at", DESCENDING)
+
+        portfolios = []
+        for doc in cursor:
+            doc["_id"] = str(doc["_id"])
+            portfolios.append(doc)
+
+        return portfolios
+
+    except Exception as exc:  # noqa: BLE001
+        logger.error("Error checking portfolios needing rebalance for user %s: %s", user_id, exc)
+        return []
+
+
+def update_rebalance_settings(
+    portfolio_id: str,
+    user_id: str,
+    auto_rebalance: bool = None,
+    rebalance_frequency: str = None,
+    rebalance_threshold: float = None,
+) -> dict:
+    """
+    Update rebalance settings for a portfolio.
+
+    Parameters
+    ----------
+    portfolio_id : str
+        MongoDB ObjectId string of the portfolio.
+    user_id : str
+        MongoDB ObjectId string of the owning user.
+    auto_rebalance : bool, optional
+        Whether to auto-rebalance.
+    rebalance_frequency : str, optional
+        Frequency: "quarterly", "monthly", "manual".
+    rebalance_threshold : float, optional
+        Threshold as decimal (e.g., 0.05 for 5%).
+
+    Returns
+    -------
+    dict
+        {"success": True} on success, or {"success": False, "error": str} on failure.
+    """
+    if not portfolio_id:
+        return {"success": False, "error": "portfolio_id is required."}
+    if not user_id:
+        return {"success": False, "error": "user_id is required."}
+
+    try:
+        oid = ObjectId(portfolio_id)
+    except (InvalidId, Exception):
+        return {"success": False, "error": "Invalid portfolio ID format."}
+
+    db = get_db()
+    if db is None:
+        return {"success": False, "error": "Database connection unavailable."}
+
+    try:
+        existing = db[PORTFOLIOS_COLLECTION].find_one({"_id": oid, "user_id": user_id})
+        if not existing:
+            return {"success": False, "error": "Portfolio not found."}
+
+        current_settings = existing.get("rebalance_settings", {})
+        updated_settings = {
+            "auto_rebalance": auto_rebalance if auto_rebalance is not None else current_settings.get("auto_rebalance", False),
+            "rebalance_frequency": rebalance_frequency or current_settings.get("rebalance_frequency", "quarterly"),
+            "rebalance_threshold": rebalance_threshold if rebalance_threshold is not None else current_settings.get("rebalance_threshold", 0.05),
+            "last_rebalanced": current_settings.get("last_rebalanced", datetime.now(timezone.utc)),
+        }
+
+        result = db[PORTFOLIOS_COLLECTION].update_one(
+            {"_id": oid, "user_id": user_id},
+            {"$set": {"rebalance_settings": updated_settings}}
+        )
+
+        if result.matched_count == 0:
+            return {"success": False, "error": "Portfolio not found or permission denied."}
+
+        logger.info("Rebalance settings updated — id: %s", portfolio_id)
+        return {"success": True}
+
+    except Exception as exc:  # noqa: BLE001
+        logger.error("Error updating rebalance settings for %s: %s", portfolio_id, exc)
+        return {"success": False, "error": str(exc)}
+
+
+def record_rebalance_history(
+    portfolio_id: str,
+    user_id: str,
+    stocks_replaced: List[Dict],
+    stocks_added: List[Dict],
+    reason: str = "scheduled",
+) -> dict:
+    """
+    Record a rebalance event in the portfolio history.
+
+    Parameters
+    ----------
+    portfolio_id : str
+        MongoDB ObjectId string of the portfolio.
+    user_id : str
+        MongoDB ObjectId string of the owning user.
+    stocks_replaced : list[dict]
+        List of stocks that were replaced.
+        Each dict: {"ticker": str, "composite_score": float}
+    stocks_added : list[dict]
+        List of stocks that were added.
+        Each dict: {"ticker": str, "composite_score": float}
+    reason : str
+        Reason for rebalance: "scheduled" or "risk_profile_change"
+
+    Returns
+    -------
+    dict
+        {"success": True} on success, or {"success": False, "error": str} on failure.
+    """
+    if not portfolio_id:
+        return {"success": False, "error": "portfolio_id is required."}
+    if not user_id:
+        return {"success": False, "error": "user_id is required."}
+
+    try:
+        oid = ObjectId(portfolio_id)
+    except (InvalidId, Exception):
+        return {"success": False, "error": "Invalid portfolio ID format."}
+
+    db = get_db()
+    if db is None:
+        return {"success": False, "error": "Database connection unavailable."}
+
+    try:
+        existing = db[PORTFOLIOS_COLLECTION].find_one({"_id": oid, "user_id": user_id})
+        if not existing:
+            return {"success": False, "error": "Portfolio not found."}
+
+        # Get current history or initialize empty
+        current_history = existing.get("rebalance_history", [])
+        
+        # Create new history entry
+        history_entry = {
+            "date": datetime.now(timezone.utc),
+            "stocks_replaced": stocks_replaced,
+            "stocks_added": stocks_added,
+            "reason": reason,
+        }
+        
+        # Append to history
+        updated_history = current_history + [history_entry]
+
+        result = db[PORTFOLIOS_COLLECTION].update_one(
+            {"_id": oid, "user_id": user_id},
+            {"$set": {"rebalance_history": updated_history}}
+        )
+
+        if result.matched_count == 0:
+            return {"success": False, "error": "Portfolio not found or permission denied."}
+
+        logger.info(
+            "Rebalance history recorded — id: %s, replaced: %d, added: %d",
+            portfolio_id,
+            len(stocks_replaced),
+            len(stocks_added),
+        )
+        return {"success": True}
+
+    except Exception as exc:  # noqa: BLE001
+        logger.error("Error recording rebalance history for %s: %s", portfolio_id, exc)
+        return {"success": False, "error": str(exc)}
+
+
+def get_rebalance_history(portfolio_id: str, user_id: str) -> dict:
+    """
+    Get rebalance history for a portfolio.
+
+    Parameters
+    ----------
+    portfolio_id : str
+        MongoDB ObjectId string of the portfolio.
+    user_id : str
+        MongoDB ObjectId string of the owning user.
+
+    Returns
+    -------
+    dict
+        {"success": True, "history": list} on success, or {"success": False, "error": str}
+    """
+    if not portfolio_id:
+        return {"success": False, "error": "portfolio_id is required.", "history": []}
+    if not user_id:
+        return {"success": False, "error": "user_id is required.", "history": []}
+
+    try:
+        oid = ObjectId(portfolio_id)
+    except (InvalidId, Exception):
+        return {"success": False, "error": "Invalid portfolio ID format.", "history": []}
+
+    db = get_db()
+    if db is None:
+        return {"success": False, "error": "Database connection unavailable.", "history": []}
+
+    try:
+        existing = db[PORTFOLIOS_COLLECTION].find_one({"_id": oid, "user_id": user_id})
+        if not existing:
+            return {"success": False, "error": "Portfolio not found.", "history": []}
+
+        history = existing.get("rebalance_history", [])
+        return {"success": True, "history": history}
+
+    except Exception as exc:  # noqa: BLE001
+        logger.error("Error fetching rebalance history for %s: %s", portfolio_id, exc)
+        return {"success": False, "error": str(exc), "history": []}

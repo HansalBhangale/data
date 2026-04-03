@@ -36,6 +36,12 @@ from .backtest import (
     format_ratio,
 )
 
+from .rebalance import (
+    calculate_rebalance_actions,
+    check_rebalance_needed,
+    regenerate_target_from_buckets,
+)
+
 __all__ = [
     # Mappings
     'map_age_to_features',
@@ -63,4 +69,8 @@ __all__ = [
     'calculate_real_backtest',
     'format_percentage',
     'format_ratio',
+    # Rebalance
+    'calculate_rebalance_actions',
+    'check_rebalance_needed',
+    'regenerate_target_from_buckets',
 ]

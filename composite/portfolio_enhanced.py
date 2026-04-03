@@ -154,7 +154,7 @@ def calculate_bucket_weights(risk_score: float) -> Dict:
     elif risk_score <= 50:
         return {'buckets': [2, 3, 4, 5], 'bucket_weights': [0.15, 0.30, 0.35, 0.20]}
     elif risk_score <= 70:
-        return {'buckets': [3, 4, 5], 'bucket_weights': [0.10, 0.35, 0.55]}
+        return {'buckets': [3, 4, 5], 'bucket_weights': [0.25, 0.50, 0.25]}
     elif risk_score <= 85:
         return {'buckets': [4, 5], 'bucket_weights': [0.25, 0.75]}
     else:
