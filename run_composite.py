@@ -38,6 +38,10 @@ from composite.portfolio import (
     build_portfolio, print_portfolio_report,
     get_investor_params, get_assigned_buckets,
 )
+from composite.portfolio_enhanced import (
+    build_portfolio_enhanced, print_enhanced_report,
+    get_enhanced_params, calculate_bucket_weights,
+)
 from composite.backtest import backtest_all_buckets, print_backtest_summary
 
 
@@ -50,59 +54,59 @@ INVESTOR_PROFILES = {
         'features': {
             'EDUC': 12, 'EMERGSAV': 1, 'HSAVFIN': 1, 'HNMMF': 0,
             'HRETQLIQ': 1, 'NWCAT': 2, 'INCCAT': 1, 'ASSETCAT': 2,
-            'NINCCAT': 1, 'NINC2CAT': 1, 'NWPCTLECAT': 25, 'INCPCTLECAT': 20,
-            'NINCPCTLECAT': 20, 'INCQRTCAT': 1, 'NINCQRTCAT': 1,
-            'AGE': 72, 'AGECL': 6, 'OCCAT1': 4, 'OCCAT2': 4
+            'NINCCAT': 1, 'NINC2CAT': 1, 'NWPCTLECAT': 4, 'INCPCTLECAT': 2,
+            'NINCPCTLECAT': 1, 'INCQRTCAT': 1, 'NINCQRTCAT': 1,
+            'AGE': 72, 'AGECL': 6, 'OCCAT1': 4, 'OCCAT2': 3
         }
     },
     'conservative': {
         'name': 'Conservative (Risk-Averse Professional)',
         'features': {
-            'EDUC': 14, 'EMERGSAV': 1, 'HSAVFIN': 1, 'HNMMF': 0,
+            'EDUC': 13, 'EMERGSAV': 1, 'HSAVFIN': 1, 'HNMMF': 0,
             'HRETQLIQ': 1, 'NWCAT': 3, 'INCCAT': 2, 'ASSETCAT': 3,
-            'NINCCAT': 2, 'NINC2CAT': 2, 'NWPCTLECAT': 40, 'INCPCTLECAT': 40,
-            'NINCPCTLECAT': 40, 'INCQRTCAT': 2, 'NINCQRTCAT': 2,
-            'AGE': 58, 'AGECL': 5, 'OCCAT1': 1, 'OCCAT2': 1
+            'NINCCAT': 1, 'NINC2CAT': 1, 'NWPCTLECAT': 6, 'INCPCTLECAT': 4,
+            'NINCPCTLECAT': 3, 'INCQRTCAT': 2, 'NINCQRTCAT': 2,
+            'AGE': 58, 'AGECL': 5, 'OCCAT1': 1, 'OCCAT2': 2
         }
     },
     'moderate': {
         'name': 'Moderate (Balanced Investor)',
         'features': {
-            'EDUC': 16, 'EMERGSAV': 1, 'HSAVFIN': 1, 'HNMMF': 1,
-            'HRETQLIQ': 1, 'NWCAT': 4, 'INCCAT': 4, 'ASSETCAT': 4,
-            'NINCCAT': 3, 'NINC2CAT': 3, 'NWPCTLECAT': 60, 'INCPCTLECAT': 60,
-            'NINCPCTLECAT': 60, 'INCQRTCAT': 3, 'NINCQRTCAT': 3,
-            'AGE': 40, 'AGECL': 3, 'OCCAT1': 1, 'OCCAT2': 1
+            'EDUC': 14, 'EMERGSAV': 1, 'HSAVFIN': 1, 'HNMMF': 1,
+            'HRETQLIQ': 1, 'NWCAT': 3, 'INCCAT': 3, 'ASSETCAT': 3,
+            'NINCCAT': 2, 'NINC2CAT': 2, 'NWPCTLECAT': 6, 'INCPCTLECAT': 6,
+            'NINCPCTLECAT': 5, 'INCQRTCAT': 2, 'NINCQRTCAT': 2,
+            'AGE': 45, 'AGECL': 4, 'OCCAT1': 1, 'OCCAT2': 2
         }
     },
     'growth': {
         'name': 'Growth (Young High Earner)',
         'features': {
-            'EDUC': 16, 'EMERGSAV': 1, 'HSAVFIN': 1, 'HNMMF': 1,
-            'HRETQLIQ': 1, 'NWCAT': 5, 'INCCAT': 5, 'ASSETCAT': 5,
-            'NINCCAT': 4, 'NINC2CAT': 4, 'NWPCTLECAT': 75, 'INCPCTLECAT': 75,
-            'NINCPCTLECAT': 75, 'INCQRTCAT': 4, 'NINCQRTCAT': 4,
-            'AGE': 32, 'AGECL': 2, 'OCCAT1': 1, 'OCCAT2': 1
+            'EDUC': 14, 'EMERGSAV': 1, 'HSAVFIN': 1, 'HNMMF': 1,
+            'HRETQLIQ': 1, 'NWCAT': 4, 'INCCAT': 4, 'ASSETCAT': 4,
+            'NINCCAT': 3, 'NINC2CAT': 2, 'NWPCTLECAT': 8, 'INCPCTLECAT': 8,
+            'NINCPCTLECAT': 7, 'INCQRTCAT': 3, 'NINCQRTCAT': 3,
+            'AGE': 35, 'AGECL': 3, 'OCCAT1': 1, 'OCCAT2': 2
         }
     },
     'aggressive': {
         'name': 'Aggressive (Young Finance Professional)',
         'features': {
-            'EDUC': 17, 'EMERGSAV': 1, 'HSAVFIN': 1, 'HNMMF': 1,
+            'EDUC': 14, 'EMERGSAV': 1, 'HSAVFIN': 1, 'HNMMF': 1,
             'HRETQLIQ': 1, 'NWCAT': 5, 'INCCAT': 6, 'ASSETCAT': 6,
-            'NINCCAT': 5, 'NINC2CAT': 5, 'NWPCTLECAT': 85, 'INCPCTLECAT': 85,
-            'NINCPCTLECAT': 85, 'INCQRTCAT': 4, 'NINCQRTCAT': 4,
-            'AGE': 28, 'AGECL': 2, 'OCCAT1': 1, 'OCCAT2': 2
+            'NINCCAT': 5, 'NINC2CAT': 3, 'NWPCTLECAT': 10, 'INCPCTLECAT': 12,
+            'NINCPCTLECAT': 11, 'INCQRTCAT': 4, 'NINCQRTCAT': 4,
+            'AGE': 28, 'AGECL': 2, 'OCCAT1': 2, 'OCCAT2': 1
         }
     },
     'ultra_aggressive': {
         'name': 'Ultra Aggressive (Wealthy Risk-Seeker)',
         'features': {
-            'EDUC': 17, 'EMERGSAV': 0, 'HSAVFIN': 1, 'HNMMF': 1,
+            'EDUC': 14, 'EMERGSAV': 0, 'HSAVFIN': 1, 'HNMMF': 1,
             'HRETQLIQ': 1, 'NWCAT': 5, 'INCCAT': 6, 'ASSETCAT': 6,
-            'NINCCAT': 6, 'NINC2CAT': 6, 'NWPCTLECAT': 95, 'INCPCTLECAT': 95,
-            'NINCPCTLECAT': 95, 'INCQRTCAT': 4, 'NINCQRTCAT': 4,
-            'AGE': 26, 'AGECL': 1, 'OCCAT1': 2, 'OCCAT2': 2
+            'NINCCAT': 5, 'NINC2CAT': 3, 'NWPCTLECAT': 10, 'INCPCTLECAT': 12,
+            'NINCPCTLECAT': 11, 'INCQRTCAT': 4, 'NINCQRTCAT': 4,
+            'AGE': 25, 'AGECL': 2, 'OCCAT1': 2, 'OCCAT2': 1
         }
     }
 }
@@ -201,6 +205,7 @@ def run_portfolio_generation(
     capital: float = 100_000,
     output_dir: str = 'output_composite',
     script_dir: Path = None,
+    use_enhanced: bool = True,
 ) -> dict:
     """
     Full pipeline: score stocks → compute risk → build portfolio.
@@ -264,8 +269,17 @@ def run_portfolio_generation(
     print("STEP 3: BUILDING RISK-MATCHED PORTFOLIO")
     print("=" * 60)
 
-    portfolio = build_portfolio(composite_df, stock_risk_df, investor_risk_score, capital)
-    print_portfolio_report(portfolio, capital)
+    if use_enhanced:
+        portfolio = build_portfolio_enhanced(
+            composite_df, stock_risk_df, investor_risk_score, capital,
+            fundamental_df=fundamental_df,
+            daily_prices=daily_prices,
+            spy_daily=spy_daily,
+        )
+        print_enhanced_report(portfolio, capital)
+    else:
+        portfolio = build_portfolio(composite_df, stock_risk_df, investor_risk_score, capital)
+        print_portfolio_report(portfolio, capital)
 
     # Save results
     with open(output_path / 'portfolio.json', 'w') as f:
@@ -322,6 +336,10 @@ def main():
     parser.add_argument('--risk-model', type=str,
                        default='risk prediction/risk_tolerance_model.pkl',
                        help='Path to trained risk prediction model')
+    parser.add_argument('--enhanced', action='store_true', default=True,
+                       help='Use enhanced portfolio builder (default: True)')
+    parser.add_argument('--no-enhanced', action='store_true',
+                       help='Use original portfolio builder')
 
     args = parser.parse_args()
 
@@ -385,6 +403,9 @@ def main():
             investor_risk_score = 50.0
             print(f"  Using default risk score: {investor_risk_score:.1f} (Moderate)")
 
+    # Determine use_enhanced flag
+    use_enhanced = not args.no_enhanced
+
     if args.compare:
         # Compare multiple profiles — compute scores once, then build portfolios
         print("\n" + "=" * 60)
@@ -406,8 +427,17 @@ def main():
             print(f"PROFILE: {profile_key.upper()} (Risk Score: {rs:.1f})")
             print(f"{'=' * 60}")
 
-            portfolio = build_portfolio(composite_df, stock_risk_df, rs, args.capital)
-            print_portfolio_report(portfolio, args.capital)
+            if use_enhanced:
+                portfolio = build_portfolio_enhanced(
+                    composite_df, stock_risk_df, rs, args.capital,
+                    fundamental_df=fundamental_df,
+                    daily_prices=daily_prices,
+                    spy_daily=spy_daily,
+                )
+                print_enhanced_report(portfolio, args.capital)
+            else:
+                portfolio = build_portfolio(composite_df, stock_risk_df, rs, args.capital)
+                print_portfolio_report(portfolio, args.capital)
 
     elif args.backtest:
         run_backtest(fundamental_df, technical_df, daily_prices, spy_daily, str(output_dir))
@@ -416,7 +446,8 @@ def main():
         # Single portfolio generation
         run_portfolio_generation(
             fundamental_df, technical_df, daily_prices, spy_daily,
-            investor_risk_score, args.capital, str(output_dir), script_dir
+            investor_risk_score, args.capital, str(output_dir), script_dir,
+            use_enhanced=use_enhanced
         )
 
 

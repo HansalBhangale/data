@@ -1,6 +1,136 @@
-cache
-checkpoints
-output
-output_technical
-risk prediction/risk_tolerance_model.pkl
-output_composite
+# =============================================================================
+# Python
+# =============================================================================
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+.env/
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+.pytest_cache/
+.mypy_cache/
+.hypothesis/
+
+# Translations
+*.mo
+*.pot
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*.ipynb
+
+# IPython
+profile_default/
+ipython_config.py
+
+# pip log
+pip-log.txt
+pip-delete-this-directory.txt
+
+# =============================================================================
+# Data & Outputs (Generated/Regenerated Files)
+# =============================================================================
+
+# Data directories
+cache/
+checkpoints/
+output/
+output_technical/
+output_composite/
+daily_prices_all.csv
+sp500_fundamental_dataset.csv
+
+# Log files
+*.log
+pipeline.log
+
+# Model outputs that can be regenerated
+*.parquet
+
+# =============================================================================
+# Streamlit
+# =============================================================================
+
+.streamlit/
+.streamlit/config.toml
+
+# =============================================================================
+# IDE & Editor
+# =============================================================================
+
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# =============================================================================
+# Environment & Secrets
+# =============================================================================
+
+.env
+.env.local
+secrets.yaml
+credentials.json
+*.key
+
+# =============================================================================
+# Claude AI
+# =============================================================================
+
+.claude/
+
+# =============================================================================
+# Optional: Keep source code model files (uncomment if needed)
+# =============================================================================
+
+# Models (these are essential - keeping them tracked)
+# risk prediction/risk_tolerance_model.pkl
+# output/model_1y.pkl
+# output_technical/model_1y.pkl
+
+# But ignore any new model files in these directories
+# output/*.pkl
+# output_technical/*.pkl

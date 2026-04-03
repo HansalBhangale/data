@@ -8,6 +8,196 @@ buckets, and constructs optimized long-only portfolios.
 import numpy as np
 import pandas as pd
 from typing import Dict, List, Optional, Tuple
+import warnings
+
+warnings.filterwarnings('ignore')
+
+
+def _fetch_historical_prices(tickers: List[str], period: str = '1y') -> pd.DataFrame:
+    """
+    Fetch historical daily closing prices for a list of tickers.
+
+    Parameters
+    ----------
+    tickers : List[str]
+        List of stock ticker symbols
+    period : str
+        Lookback period (default '1y')
+
+    Returns
+    -------
+    pd.DataFrame
+        Daily closing prices with tickers as columns
+    """
+    try:
+        import yfinance as yf
+
+        data = yf.download(tickers, period=period, progress=False)
+
+        if isinstance(data.columns, pd.MultiIndex):
+            price_cols = [c for c in ['Adj Close', 'Close'] if c in data.columns.get_level_values(0)]
+            if price_cols:
+                price_data = data.xs(price_cols[0], level=0, axis=1)
+            else:
+                return pd.DataFrame()
+        else:
+            price_data = data
+
+        if isinstance(price_data, pd.Series):
+            price_data = price_data.to_frame()
+
+        price_data = price_data.dropna(axis=1, thresh=len(price_data) * 0.8)
+
+        if price_data.empty or len(price_data) < 60:
+            return pd.DataFrame()
+
+        return price_data
+    except Exception:
+        return pd.DataFrame()
+
+
+def _optimize_weights_max_sharpe(
+    portfolio_stocks: pd.DataFrame,
+    min_weight: float = 0.02,
+    max_weight: float = 0.30,
+    risk_free_rate: float = 0.04,
+) -> Optional[np.ndarray]:
+    """
+    Optimize portfolio weights using Max Sharpe ratio via PyPortfolioOpt.
+
+    Uses ML composite scores as expected returns and historical price data
+    for covariance estimation (per PyPortfolioOpt documentation).
+
+    Parameters
+    ----------
+    portfolio_stocks : pd.DataFrame
+        DataFrame with 'ticker' and 'composite_score' columns
+    min_weight : float
+        Minimum weight per position
+    max_weight : float
+        Maximum weight per position
+    risk_free_rate : float
+        Risk-free rate for Sharpe calculation
+
+    Returns
+    -------
+    np.ndarray or None
+        Optimized weights aligned with portfolio_stocks order, or None on failure
+    """
+    try:
+        import os
+        os.environ['CVXPY_PRINT_SOLVER_STATUS'] = '0'
+
+        import warnings
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            from pypfopt import EfficientFrontier
+            from pypfopt import risk_models
+
+        tickers = portfolio_stocks['ticker'].tolist()
+        scores = portfolio_stocks['composite_score'].values
+
+        prices = _fetch_historical_prices(tickers)
+
+        if prices.empty or len(prices) < 60:
+            return None
+
+        available = [t for t in tickers if t in prices.columns]
+        if len(available) < 3:
+            return None
+
+        prices = prices[available]
+
+        mu = pd.Series(
+            [scores[tickers.index(t)] * 0.20 for t in available],
+            index=available,
+        )
+
+        S = risk_models.sample_cov(prices, frequency=252)
+
+        if np.isnan(S.values).any() or np.isinf(S.values).any():
+            return None
+
+        ef = EfficientFrontier(
+            mu, S,
+            weight_bounds=(min_weight, max_weight)
+        )
+
+        ef.max_sharpe(risk_free_rate=risk_free_rate)
+
+        weights = ef.clean_weights()
+
+        weight_array = np.array([weights.get(t, 0.0) for t in tickers])
+
+        if weight_array.sum() <= 0:
+            return None
+
+        weight_array /= weight_array.sum()
+
+        perf = ef.portfolio_performance(risk_free_rate)
+        print(f"  Portfolio optimized via Max Sharpe (PyPortfolioOpt)")
+        print(f"  Expected annual return: {perf[0]:.1%}")
+        print(f"  Expected annual volatility: {perf[1]:.1%}")
+        print(f"  Sharpe ratio: {perf[2]:.2f}")
+
+        return weight_array
+
+    except ImportError:
+        print("  WARNING: PyPortfolioOpt not installed, falling back to score-based weighting")
+        return None
+    except Exception as e:
+        print(f"  WARNING: Optimization failed ({e}), falling back to score-based weighting")
+        return None
+
+
+def _weight_by_scores(
+    portfolio_stocks: pd.DataFrame,
+    gamma: float = 2.0,
+    min_weight: float = 0.05,
+    max_weight: float = 0.30,
+) -> np.ndarray:
+    """
+    Weight stocks by exponential score weighting (fallback method).
+
+    Parameters
+    ----------
+    portfolio_stocks : pd.DataFrame
+        DataFrame with 'composite_score' column
+    gamma : float
+        Exponential weighting exponent
+    min_weight : float
+        Minimum weight threshold
+    max_weight : float
+        Maximum weight per position
+
+    Returns
+    -------
+    np.ndarray
+        Normalized weights
+    """
+    scores = portfolio_stocks['composite_score'].values
+    raw_weights = np.power(scores, gamma)
+    weights = raw_weights / raw_weights.sum()
+
+    cl = max_weight
+    for _ in range(10):
+        excess = np.maximum(weights - cl, 0)
+        if excess.sum() < 1e-10:
+            break
+        weights = np.minimum(weights, cl)
+        remaining = weights < cl
+        if remaining.sum() > 0 and excess.sum() > 0:
+            weights[remaining] += excess.sum() * (weights[remaining] / weights[remaining].sum())
+
+    if weights.sum() > 0:
+        weights /= weights.sum()
+
+    mask = weights >= min_weight
+    weights = weights * mask
+    if weights.sum() > 0:
+        weights /= weights.sum()
+
+    return weights
 
 
 # Investor risk profile → assigned stock buckets
@@ -119,29 +309,25 @@ def build_portfolio(
             'investor_risk_score': investor_risk_score,
         }
 
-    # Exponential weighting
-    scores = portfolio_stocks['composite_score'].values
-    raw_weights = np.power(scores, gamma)
-    weights = raw_weights / raw_weights.sum()
-
-    # Apply concentration limit
     cl = params['concentration_limit']
-    for _ in range(10):
-        excess = np.maximum(weights - cl, 0)
-        if excess.sum() < 1e-10:
-            break
-        weights = np.minimum(weights, cl)
-        remaining = weights < cl
-        if remaining.sum() > 0 and excess.sum() > 0:
-            weights[remaining] += excess.sum() * (weights[remaining] / weights[remaining].sum())
+    min_w = 0.02
 
-    # Normalize
-    if weights.sum() > 0:
-        weights /= weights.sum()
+    weights = _optimize_weights_max_sharpe(
+        portfolio_stocks,
+        min_weight=min_w,
+        max_weight=cl,
+        risk_free_rate=0.04,
+    )
 
-    # Apply minimum position threshold (5%)
-    min_weight = 0.05
-    mask = weights >= min_weight
+    if weights is None:
+        weights = _weight_by_scores(
+            portfolio_stocks,
+            gamma=gamma,
+            min_weight=0.05,
+            max_weight=cl,
+        )
+
+    mask = weights > 1e-6
     weights = weights * mask
     if weights.sum() > 0:
         weights /= weights.sum()

@@ -37,7 +37,6 @@ def get_feature_columns(df: pd.DataFrame) -> List[str]:
     - Rolling volatility features
     - Sector z-scores
     - Temporal lags
-    - Year and quarter
 
     Excludes:
     - Identifiers (ticker, cik, entity_name)
@@ -71,12 +70,6 @@ def get_feature_columns(df: pd.DataFrame) -> List[str]:
 
         # Include all other columns
         feature_cols.append(col)
-
-    # Ensure year and quarter are included
-    if 'year' not in feature_cols and 'year' in df.columns:
-        feature_cols.append('year')
-    if 'quarter' not in feature_cols and 'quarter' in df.columns:
-        feature_cols.append('quarter')
 
     return feature_cols
 

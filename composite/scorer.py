@@ -41,12 +41,15 @@ def compute_composite_scores(
     pd.DataFrame
         Columns: ticker, fundamental_score, technical_score, composite_score
     """
-    all_tickers = sorted(set(fundamental_scores.keys()) | set(technical_scores.keys()))
+    fund_tickers = {str(k): v for k, v in fundamental_scores.items() if isinstance(k, str) and k.strip()}
+    tech_tickers = {str(k): v for k, v in technical_scores.items() if isinstance(k, str) and k.strip()}
+
+    all_tickers = sorted(set(fund_tickers.keys()) | set(tech_tickers.keys()))
 
     records = []
     for ticker in all_tickers:
-        fund = fundamental_scores.get(ticker, 0.5)
-        tech = technical_scores.get(ticker, 0.5)
+        fund = fund_tickers.get(ticker, 0.5)
+        tech = tech_tickers.get(ticker, 0.5)
         composite = fund_weight * fund + tech_weight * tech
         records.append({
             'ticker': ticker,

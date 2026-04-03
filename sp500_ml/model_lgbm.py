@@ -60,22 +60,21 @@ class LightGBMModel:
         self.best_params_ = None
 
     def _get_default_params(self) -> Dict:
-        """Get default LightGBM parameters with stronger regularization."""
+        """Get default LightGBM parameters — balanced regularization."""
         return {
             'objective': 'regression',
             'metric': 'rmse',
             'verbosity': -1,
             'boosting_type': 'gbdt',
-            'num_leaves': 16,
-            'learning_rate': 0.01,
-            'n_estimators': 2000,
-            'min_child_samples': 100,
-            'reg_alpha': 1.0,
-            'reg_lambda': 2.0,
-            'subsample': 0.5,
-            'colsample_bytree': 0.5,
-            'min_gain_to_split': 0.1,
-            'max_depth': 5,
+            'num_leaves': 63,
+            'learning_rate': 0.03,
+            'n_estimators': 1500,
+            'min_child_samples': 30,
+            'reg_alpha': 0.1,
+            'reg_lambda': 0.1,
+            'subsample': 0.8,
+            'colsample_bytree': 0.8,
+            'max_depth': 7,
             'random_state': self.random_state,
         }
 
@@ -118,23 +117,22 @@ class LightGBMModel:
                 'verbosity': -1,
                 'boosting_type': 'gbdt',
                 'random_state': self.random_state,
-                'num_leaves': trial.suggest_int('num_leaves', 8, 31),
-                'learning_rate': trial.suggest_float('learning_rate', 0.005, 0.05, log=True),
-                'n_estimators': trial.suggest_int('n_estimators', 500, 3000),
-                'min_child_samples': trial.suggest_int('min_child_samples', 80, 200),
-                'reg_alpha': trial.suggest_float('reg_alpha', 0.5, 5.0),
-                'reg_lambda': trial.suggest_float('reg_lambda', 0.5, 5.0),
-                'subsample': trial.suggest_float('subsample', 0.4, 0.7),
-                'colsample_bytree': trial.suggest_float('colsample_bytree', 0.4, 0.7),
-                'max_depth': trial.suggest_int('max_depth', 3, 6),
-                'min_gain_to_split': trial.suggest_float('min_gain_to_split', 0.05, 0.5),
+                'num_leaves': trial.suggest_int('num_leaves', 16, 127),
+                'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.1, log=True),
+                'n_estimators': trial.suggest_int('n_estimators', 500, 2000),
+                'min_child_samples': trial.suggest_int('min_child_samples', 10, 100),
+                'reg_alpha': trial.suggest_float('reg_alpha', 0.01, 2.0, log=True),
+                'reg_lambda': trial.suggest_float('reg_lambda', 0.01, 2.0, log=True),
+                'subsample': trial.suggest_float('subsample', 0.6, 0.9),
+                'colsample_bytree': trial.suggest_float('colsample_bytree', 0.6, 0.9),
+                'max_depth': trial.suggest_int('max_depth', 4, 8),
             }
 
             model = lgb.LGBMRegressor(**params)
             model.fit(
                 X_train, y_train,
                 eval_set=[(X_val, y_val)],
-                callbacks=[lgb.early_stopping(50), lgb.log_evaluation(0)]
+                callbacks=[lgb.log_evaluation(0)]
             )
             return model.best_score_['valid_0']['rmse']
 
@@ -200,15 +198,11 @@ class LightGBMModel:
 
         callbacks = [lgb.log_evaluation(100)]
 
-        if X_val is not None and y_val is not None:
-            callbacks.append(lgb.early_stopping(50))
-            self.model_.fit(
-                X_train, y_train,
-                eval_set=[(X_val, y_val)],
-                callbacks=callbacks
-            )
-        else:
-            self.model_.fit(X_train, y_train, callbacks=callbacks)
+        self.model_.fit(
+            X_train, y_train,
+            eval_set=[(X_val, y_val)] if X_val is not None and y_val is not None else None,
+            callbacks=callbacks
+        )
 
         print(f"Model trained. Best iteration: {self.model_.best_iteration_}")
 
