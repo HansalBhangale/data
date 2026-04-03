@@ -144,20 +144,21 @@ def compute_quality_scores(fundamental_df: pd.DataFrame) -> Tuple[Dict[str, floa
 def calculate_bucket_weights(risk_score: float) -> Dict:
     """
     Calculate bucket weights dynamically based on exact risk score.
-    ALL profiles get meaningful exposure to higher-return buckets (4-5) to beat S&P.
+    Higher investor risk score = higher stock buckets (riskier stocks).
+    Lower investor risk score = lower stock buckets (safer stocks).
     """
     if risk_score <= 20:
-        return {'buckets': [2, 3, 4, 5], 'bucket_weights': [0.20, 0.30, 0.30, 0.20]}
+        return {'buckets': [1, 2, 3], 'bucket_weights': [0.40, 0.35, 0.25]}
     elif risk_score <= 35:
-        return {'buckets': [2, 3, 4, 5], 'bucket_weights': [0.15, 0.25, 0.35, 0.25]}
+        return {'buckets': [1, 2, 3, 4], 'bucket_weights': [0.25, 0.30, 0.30, 0.15]}
     elif risk_score <= 50:
-        return {'buckets': [2, 3, 4, 5], 'bucket_weights': [0.10, 0.20, 0.35, 0.35]}
+        return {'buckets': [2, 3, 4, 5], 'bucket_weights': [0.15, 0.30, 0.35, 0.20]}
     elif risk_score <= 70:
-        return {'buckets': [3, 4, 5], 'bucket_weights': [0.05, 0.25, 0.70]}
+        return {'buckets': [3, 4, 5], 'bucket_weights': [0.10, 0.35, 0.55]}
     elif risk_score <= 85:
-        return {'buckets': [3, 4, 5], 'bucket_weights': [0.05, 0.20, 0.75]}
+        return {'buckets': [4, 5], 'bucket_weights': [0.25, 0.75]}
     else:
-        return {'buckets': [4, 5], 'bucket_weights': [0.15, 0.85]}
+        return {'buckets': [5], 'bucket_weights': [1.0]}
 
 
 INVESTOR_PARAMS_ENHANCED = {
