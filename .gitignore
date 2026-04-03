@@ -126,11 +126,8 @@ credentials.json
 # Optional: Keep source code model files (uncomment if needed)
 # =============================================================================
 
-# Models (these are essential - keeping them tracked)
-# risk prediction/risk_tolerance_model.pkl
-# output/model_1y.pkl
-# output_technical/model_1y.pkl
-
-# But ignore any new model files in these directories
-# output/*.pkl
-# output_technical/*.pkl
+# NOTE: Large model files (>100MB) cannot be pushed to GitHub
+# Add them here to exclude from git tracking
+risk prediction/risk_tolerance_model.pkl
+output/model_1y.pkl
+output_technical/model_1y.pkl
