@@ -50,6 +50,72 @@ def load_model_predictions() -> Tuple[Dict[str, float], Dict[str, float]]:
     return fund_scores, tech_scores
 
 
+def load_bond_scores() -> pd.Series:
+    """Load bond scores from the bond scores CSV file."""
+    import os
+    base_path = get_base_path()
+    bond_scores_path = base_path / 'output_bond_ml' / 'bond_scores.csv'
+    
+    if not os.path.exists(bond_scores_path):
+        return pd.Series(dtype=float)
+    
+    try:
+        bond_df = pd.read_csv(bond_scores_path)
+        if 'ticker' in bond_df.columns and 'bond_score' in bond_df.columns:
+            return bond_df.set_index('ticker')['bond_score']
+        return pd.Series(dtype=float)
+    except Exception:
+        return pd.Series(dtype=float)
+
+
+def get_bond_buckets(risk_score: float) -> list:
+    """Get allowed bond ETFs based on investor risk score."""
+    if risk_score <= 20:
+        return ['SHY', 'VGSH', 'SCHO', 'VCSH', 'IGSB']
+    elif risk_score <= 35:
+        return ['SHY', 'IEF', 'VCIT', 'IGIB', 'AGG']
+    elif risk_score <= 50:
+        return ['IEF', 'AGG', 'LQD', 'VCIT', 'BOND']
+    elif risk_score <= 70:
+        return ['AGG', 'LQD', 'HYG', 'JNK', 'BOND']
+    elif risk_score <= 85:
+        return ['LQD', 'HYG', 'JNK', 'EMB', 'TLT']
+    else:
+        return ['HYG', 'JNK', 'EMB', 'TLT', 'LTPZ']
+
+
+def get_investor_allocation(risk_score: float) -> tuple:
+    """Get equity/bond/cash allocation percentages based on risk score."""
+    if risk_score <= 20:
+        return (0.98, 0.00, 0.02)
+    elif risk_score <= 35:
+        return (0.82, 0.15, 0.03)
+    elif risk_score <= 50:
+        return (0.84, 0.13, 0.03)
+    elif risk_score <= 70:
+        return (0.93, 0.05, 0.02)
+    elif risk_score <= 85:
+        return (0.98, 0.00, 0.02)
+    else:
+        return (1.00, 0.00, 0.00)
+
+
+def get_category_name(risk_score: float) -> str:
+    """Get risk category name from score."""
+    if risk_score <= 20:
+        return 'Ultra Conservative'
+    elif risk_score <= 35:
+        return 'Conservative'
+    elif risk_score <= 50:
+        return 'Moderate'
+    elif risk_score <= 70:
+        return 'Growth'
+    elif risk_score <= 85:
+        return 'Aggressive'
+    else:
+        return 'Ultra Aggressive'
+
+
 def build_investor_portfolio(
     risk_score: float,
     capital: float = 100000,
@@ -102,11 +168,9 @@ def build_investor_portfolio(
     
     # Step 4: Compute stock risk scores
     with st.spinner("Computing stock risk scores..."):
-        # Try to load precomputed risk scores first
         stock_risk_df = load_stock_risk_scores()
         
         if stock_risk_df.empty:
-            # Compute if not available
             fundamental_df = pd.read_csv(
                 next((get_base_path() / 'output' / 'preprocessed_data.csv').glob('*.csv'))
             )
@@ -122,10 +186,10 @@ def build_investor_portfolio(
     except:
         pass
     
-    # Step 6: Build portfolio
-    with st.spinner("Building optimized portfolio..."):
+    # Step 6: Build stock portfolio
+    with st.spinner("Building stock portfolio..."):
         if use_enhanced:
-            portfolio = build_portfolio_enhanced(
+            stock_portfolio = build_portfolio_enhanced(
                 composite_df=composite_df,
                 stock_risk_df=stock_risk_df,
                 investor_risk_score=risk_score,
@@ -136,16 +200,89 @@ def build_investor_portfolio(
                 max_stocks=max_stocks,
             )
         else:
-            # Fallback to original
             from composite.portfolio import build_portfolio
-            portfolio = build_portfolio(
+            stock_portfolio = build_portfolio(
                 composite_df=composite_df,
                 stock_risk_df=stock_risk_df,
                 investor_risk_score=risk_score,
                 capital=capital,
             )
     
-    return portfolio
+    if 'error' in stock_portfolio:
+        return stock_portfolio
+    
+    # Step 7: Load and allocate bonds
+    with st.spinner("Allocating bonds..."):
+        bond_scores = load_bond_scores()
+        allowed_bond_etfs = get_bond_buckets(risk_score)
+        equity_pct, bond_pct, cash_pct = get_investor_allocation(risk_score)
+        
+        eligible_bonds = bond_scores[bond_scores.index.isin(allowed_bond_etfs)] if not bond_scores.empty else pd.Series(dtype=float)
+        
+        if eligible_bonds.empty and not bond_scores.empty:
+            eligible_bonds = bond_scores.sort_values(ascending=False).head(5)
+        
+        bond_allocations = []
+        if not eligible_bonds.empty:
+            bond_total_pct = bond_pct
+            bond_pct_value = bond_pct * 100
+            
+            if bond_pct_value >= 30:
+                n_bonds = 5
+            elif bond_pct_value >= 15:
+                n_bonds = 4
+            elif bond_pct_value >= 5:
+                n_bonds = 3
+            else:
+                n_bonds = 2 if bond_pct_value > 2 else 1
+            
+            eligible_bonds = eligible_bonds.head(n_bonds)
+            
+            if len(eligible_bonds) > 0:
+                bond_weights = np.power(eligible_bonds.values, 1.5)
+                bond_weights = bond_weights / bond_weights.sum()
+                
+                for i, (ticker, score) in enumerate(eligible_bonds.items()):
+                    weight_pct = bond_weights[i] * bond_total_pct * 100
+                    bond_allocations.append({
+                        'ticker': ticker,
+                        'type': 'Bond',
+                        'score': round(float(score), 2),
+                        'weight_pct': round(weight_pct, 2),
+                        'capital_allocated': round(weight_pct / 100 * capital, 2),
+                    })
+    
+    # Step 8: Merge stock and bond allocations
+    stock_allocations = stock_portfolio.get('allocations', [])
+    
+    for alloc in stock_allocations:
+        alloc['type'] = 'Equity'
+        original_weight = alloc['weight_pct']
+        alloc['weight_pct'] = round(original_weight * equity_pct, 2)
+        alloc['capital_allocated'] = round(alloc['weight_pct'] / 100 * capital, 2)
+    
+    all_allocations = stock_allocations + bond_allocations
+    all_allocations.sort(key=lambda x: x['weight_pct'], reverse=True)
+    
+    # Recalculate amounts based on actual allocations
+    total_equity = sum(a['capital_allocated'] for a in stock_allocations)
+    total_bond = sum(a['capital_allocated'] for a in bond_allocations)
+    total_cash = capital - total_equity - total_bond
+    
+    return {
+        'investor_risk_score': risk_score,
+        'category': get_category_name(risk_score),
+        'equity_weight': round(equity_pct * 100, 2),
+        'equity_amount': round(total_equity, 2),
+        'bond_weight': round(bond_pct * 100, 2),
+        'bond_amount': round(total_bond, 2),
+        'cash_weight': round(cash_pct * 100, 2),
+        'cash_amount': round(total_cash, 2),
+        'n_holdings': len(all_allocations),
+        'n_stocks': len(stock_allocations),
+        'n_bonds': len(bond_allocations),
+        'allocations': all_allocations,
+    }
 
 
 def get_base_path():

@@ -86,32 +86,80 @@ def render_holdings_table(portfolio: dict):
     # Create DataFrame
     df = pd.DataFrame(allocations)
 
-    # Format columns for display
-    display_df = pd.DataFrame({
-        'Ticker': df['ticker'],
-        'Final Score': df['final_score'].round(3),
-        'Momentum': df['momentum_score'].round(3),
-        'Quality': df['quality_score'].round(3),
-        'Risk Bucket': df['risk_bucket'],
-        'Weight': df['weight_pct'].apply(lambda x: f"{x:.1f}%"),
-        'Capital': df['capital_allocated'].apply(lambda x: f"${x:,.0f}"),
-    })
+    # Check if this is a unified portfolio (with type field) or just stocks
+    has_type = 'type' in df.columns
 
-    # Display with styling
-    st.dataframe(
-        display_df,
-        use_container_width=True,
-        hide_index=True,
-        column_config={
-            'Ticker': st.column_config.TextColumn('Ticker', width='small'),
-            'Final Score': st.column_config.NumberColumn('Score', format='%.3f'),
-            'Momentum': st.column_config.NumberColumn('Momentum', format='%.3f'),
-            'Quality': st.column_config.NumberColumn('Quality', format='%.3f'),
-            'Risk Bucket': st.column_config.TextColumn('Bucket'),
-            'Weight': st.column_config.TextColumn('Weight %'),
-            'Capital': st.column_config.TextColumn('Capital'),
-        }
-    )
+    if has_type:
+        # Unified portfolio with stocks and bonds
+        df['Type'] = df['type']
+        
+        # Different columns for equity vs bond
+        equity_mask = df['Type'] == 'Equity'
+        bond_mask = df['Type'] == 'Bond'
+        
+        display_data = []
+        for _, row in df.iterrows():
+            if row['Type'] == 'Equity':
+                display_data.append({
+                    'Type': 'Equity',
+                    'Ticker': row['ticker'],
+                    'Score': f"{row.get('final_score', row.get('composite_score', 0)):.3f}",
+                    'Risk': row.get('risk_bucket', '-'),
+                    'Weight': f"{row['weight_pct']:.1f}%",
+                    'Capital': f"${row['capital_allocated']:,.0f}",
+                })
+            else:
+                display_data.append({
+                    'Type': 'Bond',
+                    'Ticker': row['ticker'],
+                    'Score': f"{row.get('score', row.get('composite_score', 0)):.2f}",
+                    'Risk': '-',
+                    'Weight': f"{row['weight_pct']:.1f}%",
+                    'Capital': f"${row['capital_allocated']:,.0f}",
+                })
+        
+        display_df = pd.DataFrame(display_data)
+        
+        # Display with styling
+        st.dataframe(
+            display_df,
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                'Type': st.column_config.TextColumn('Type', width='small'),
+                'Ticker': st.column_config.TextColumn('Ticker', width='small'),
+                'Score': st.column_config.TextColumn('Score'),
+                'Risk': st.column_config.TextColumn('Bucket'),
+                'Weight': st.column_config.TextColumn('Weight %'),
+                'Capital': st.column_config.TextColumn('Capital'),
+            }
+        )
+    else:
+        # Original stock-only format
+        display_df = pd.DataFrame({
+            'Ticker': df['ticker'],
+            'Final Score': df['final_score'].round(3),
+            'Momentum': df['momentum_score'].round(3),
+            'Quality': df['quality_score'].round(3),
+            'Risk Bucket': df['risk_bucket'],
+            'Weight': df['weight_pct'].apply(lambda x: f"{x:.1f}%"),
+            'Capital': df['capital_allocated'].apply(lambda x: f"${x:,.0f}"),
+        })
+
+        st.dataframe(
+            display_df,
+            use_container_width=True,
+            hide_index=True,
+            column_config={
+                'Ticker': st.column_config.TextColumn('Ticker', width='small'),
+                'Final Score': st.column_config.NumberColumn('Score', format='%.3f'),
+                'Momentum': st.column_config.NumberColumn('Momentum', format='%.3f'),
+                'Quality': st.column_config.NumberColumn('Quality', format='%.3f'),
+                'Risk Bucket': st.column_config.TextColumn('Bucket'),
+                'Weight': st.column_config.TextColumn('Weight %'),
+                'Capital': st.column_config.TextColumn('Capital'),
+            }
+        )
 
 
 def render_portfolio_summary(portfolio: dict):
@@ -126,32 +174,70 @@ def render_portfolio_summary(portfolio: dict):
     if not portfolio:
         return
 
-    col1, col2, col3, col4 = st.columns(4)
+    # Check if this is a unified portfolio (has bonds)
+    has_bonds = 'bond_weight' in portfolio and portfolio.get('bond_weight', 0) > 0
+    
+    if has_bonds:
+        # Unified portfolio with stocks and bonds
+        col1, col2, col3, col4, col5 = st.columns(5)
 
-    with col1:
-        st.metric(
-            label="Holdings",
-            value=portfolio.get('n_holdings', 0)
-        )
+        with col1:
+            st.metric(
+                label="Holdings",
+                value=portfolio.get('n_holdings', 0)
+            )
 
-    with col2:
-        st.metric(
-            label="Equity",
-            value=f"{portfolio.get('equity_weight', 0):.0f}%"
-        )
+        with col2:
+            st.metric(
+                label="Stocks",
+                value=portfolio.get('n_stocks', 0)
+            )
 
-    with col3:
-        st.metric(
-            label="Cash",
-            value=f"{portfolio.get('cash_weight', 0):.0f}%"
-        )
+        with col3:
+            st.metric(
+                label="Bonds",
+                value=portfolio.get('n_bonds', 0)
+            )
 
-    with col4:
-        bucket_str = str(portfolio.get('buckets', []))
-        st.metric(
-            label="Buckets",
-            value=bucket_str
-        )
+        with col4:
+            st.metric(
+                label="Equity",
+                value=f"{portfolio.get('equity_weight', 0):.0f}%"
+            )
+
+        with col5:
+            st.metric(
+                label="Bonds",
+                value=f"{portfolio.get('bond_weight', 0):.0f}%"
+            )
+    else:
+        # Original stock-only format
+        col1, col2, col3, col4 = st.columns(4)
+
+        with col1:
+            st.metric(
+                label="Holdings",
+                value=portfolio.get('n_holdings', 0)
+            )
+
+        with col2:
+            st.metric(
+                label="Equity",
+                value=f"{portfolio.get('equity_weight', 0):.0f}%"
+            )
+
+        with col3:
+            st.metric(
+                label="Cash",
+                value=f"{portfolio.get('cash_weight', 0):.0f}%"
+            )
+
+        with col4:
+            bucket_str = str(portfolio.get('buckets', []))
+            st.metric(
+                label="Buckets",
+                value=bucket_str
+            )
 
 
 def render_section_header(title: str):
