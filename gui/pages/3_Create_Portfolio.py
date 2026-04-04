@@ -79,6 +79,7 @@ st.set_page_config(
     page_title="PAAS | Create Portfolio",
     page_icon="📊",
     layout="wide",
+    initial_sidebar_state="expanded",
 )
 
 # Apply the shared cyberpunk theme at module level so it is in the DOM even
@@ -94,19 +95,30 @@ st.markdown(get_custom_css(), unsafe_allow_html=True)
 def _render_sidebar() -> None:
     """Render the authenticated user's navigation sidebar."""
     with st.sidebar:
-        st.markdown(f"### 👤 {st.session_state.get('user_name', 'User')}")
-        st.markdown(f"*{st.session_state.get('user_email', '')}*")
+        uname = st.session_state.get('user_name', 'User')
+        uemail = st.session_state.get('user_email', '')
+        st.markdown(
+            f"""<div style="
+                background: rgba(59,130,246,0.06);
+                border: 1px solid rgba(59,130,246,0.12);
+                border-radius: 10px;
+                padding: 12px 14px;
+                margin-bottom: 0.6rem;
+            ">
+                <div style="color:#E2E8F0;font-size:0.92rem;font-weight:600;">👤 {uname}</div>
+                <div style="color:#94A3B8;font-size:0.75rem;margin-top:2px;">{uemail}</div>
+            </div>""",
+            unsafe_allow_html=True,
+        )
         st.divider()
 
         st.page_link(
             "pages/3_Create_Portfolio.py",
-            label="📊 Create Portfolio",
-            icon="📊",
+            label="📊  Create Portfolio",
         )
         st.page_link(
             "pages/4_My_Portfolios.py",
-            label="📁 My Portfolios",
-            icon="📁",
+            label="📁  My Portfolios",
         )
 
         st.divider()

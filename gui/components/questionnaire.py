@@ -3,6 +3,9 @@ Questionnaire Component - Main Content Area
 
 Investor questionnaire rendered in the main content area (not sidebar).
 Fixed layout - cannot be collapsed or hidden.
+
+NOTE: All questions, options, field names, and return values are UNCHANGED.
+Only visual styling has been updated.
 """
 
 import streamlit as st
@@ -15,18 +18,32 @@ def render_questionnaire() -> Dict:
     Fixed layout - everything always visible.
     """
     # Title
-    st.markdown("## 📋 Investor Profiling Questionnaire")
-    st.markdown("Fill in your details below to generate your personalized portfolio.")
-    st.markdown("---")
-    
+    st.markdown("""
+        <div style="margin-bottom: 1.2rem;">
+            <h2 style="color: #E2E8F0; font-weight: 700; font-size: 1.4rem; margin-bottom: 0.3rem;">
+                📋 Investor Profiling Questionnaire
+            </h2>
+            <p style="color: #94A3B8; font-size: 0.88rem; margin: 0;">
+                Fill in your details below to generate your personalized portfolio.
+            </p>
+        </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown('<div class="quantum-divider"></div>', unsafe_allow_html=True)
+
     # Create columns for layout
-    col1, col2 = st.columns([1, 1])
-    
+    col1, col2 = st.columns([1, 1], gap="large")
+
     with col1:
-        st.markdown("### 👤 Personal Information")
-        
+        st.markdown("""
+            <p style="color: #60A5FA; font-size: 0.75rem; font-weight: 600;
+                      letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 0.8rem;">
+                👤 Personal Information
+            </p>
+        """, unsafe_allow_html=True)
+
         age = st.slider("Age", 18, 85, 35, help="Your current age")
-        
+
         education = st.selectbox(
             "Education Level",
             [
@@ -39,7 +56,7 @@ def render_questionnaire() -> Dict:
             ],
             index=3,
         )
-        
+
         occupation = st.selectbox(
             "Occupation Status",
             [
@@ -49,10 +66,15 @@ def render_questionnaire() -> Dict:
                 "Not Working/Student"
             ],
         )
-    
+
     with col2:
-        st.markdown("### 💰 Financial Details")
-        
+        st.markdown("""
+            <p style="color: #60A5FA; font-size: 0.75rem; font-weight: 600;
+                      letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 0.8rem;">
+                💰 Financial Details
+            </p>
+        """, unsafe_allow_html=True)
+
         income = st.selectbox(
             "Annual Income",
             [
@@ -65,7 +87,7 @@ def render_questionnaire() -> Dict:
             ],
             index=3,
         )
-        
+
         networth = st.selectbox(
             "Net Worth",
             [
@@ -77,7 +99,7 @@ def render_questionnaire() -> Dict:
             ],
             index=2,
         )
-        
+
         assets = st.selectbox(
             "Total Assets",
             [
@@ -90,15 +112,20 @@ def render_questionnaire() -> Dict:
             ],
             index=2,
         )
-    
-    st.markdown("---")
-    
+
+    st.markdown('<div class="quantum-divider"></div>', unsafe_allow_html=True)
+
     # Second row
-    col1, col2 = st.columns([1, 1])
-    
+    col1, col2 = st.columns([1, 1], gap="large")
+
     with col1:
-        st.markdown("### 📈 Investment Experience")
-        
+        st.markdown("""
+            <p style="color: #60A5FA; font-size: 0.75rem; font-weight: 600;
+                      letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 0.8rem;">
+                📈 Investment Experience
+            </p>
+        """, unsafe_allow_html=True)
+
         col_a, col_b = st.columns(2)
         with col_a:
             has_emergency = st.checkbox("Emergency Fund", value=True)
@@ -106,10 +133,15 @@ def render_questionnaire() -> Dict:
         with col_b:
             has_savings = st.checkbox("Savings Account", value=True)
             has_retirement = st.checkbox("Retirement Account", value=True)
-    
+
     with col2:
-        st.markdown("### 💵 Investment Capital")
-        
+        st.markdown("""
+            <p style="color: #60A5FA; font-size: 0.75rem; font-weight: 600;
+                      letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 0.8rem;">
+                💵 Investment Capital
+            </p>
+        """, unsafe_allow_html=True)
+
         capital = st.number_input(
             "Capital to Invest ($)",
             min_value=1000,
@@ -118,9 +150,9 @@ def render_questionnaire() -> Dict:
             step=10000,
             help="Amount you want to invest",
         )
-    
-    st.markdown("---")
-    
+
+    st.markdown('<div class="quantum-divider"></div>', unsafe_allow_html=True)
+
     # Generate Button - Full width
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
@@ -129,7 +161,7 @@ def render_questionnaire() -> Dict:
             type="primary",
             use_container_width=True,
         )
-    
+
     # Handle button click
     if generate:
         st.session_state.run_portfolio = True
@@ -138,9 +170,9 @@ def render_questionnaire() -> Dict:
         if 'backtest_result' in st.session_state:
             del st.session_state['backtest_result']
         st.rerun()
-    
-    st.markdown("---")
-    
+
+    st.markdown('<div class="quantum-divider"></div>', unsafe_allow_html=True)
+
     return {
         'age': age,
         'education': education,

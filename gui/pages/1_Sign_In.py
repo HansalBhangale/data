@@ -1,7 +1,7 @@
 """
 PAAS — Sign In Page
 
-Cyberpunk / fintech themed authentication page.
+Professional fintech themed authentication page.
 The entire centred block-container is styled as a single glass card.
 """
 
@@ -42,6 +42,7 @@ st.set_page_config(
     page_title="PAAS | Sign In",
     page_icon="🔐",
     layout="centered",
+    initial_sidebar_state="expanded",
 )
 
 
@@ -58,39 +59,20 @@ st.markdown(get_custom_css(), unsafe_allow_html=True)
 
 AUTH_CSS = """
 <style>
-/* ── Hide Streamlit chrome ── */
-header, footer, #MainMenu { visibility: hidden !important; }
+footer, #MainMenu { visibility: hidden !important; }
+header { background: transparent !important; box-shadow: none !important; }
 [data-testid="stSidebarNav"] { display: none !important; }
 
 /* ══════════════════════════════════════════
    BACKGROUND
 ══════════════════════════════════════════ */
 
-/* Enhanced radial background to complement the card */
 .stApp {
     background-image:
-        radial-gradient(ellipse 800px 600px at 20% 10%,
-            rgba(112, 0, 255, 0.22) 0%, transparent 60%),
-        radial-gradient(ellipse 700px 600px at 85% 90%,
-            rgba(0, 242, 255, 0.12) 0%, transparent 60%) !important;
-}
-
-/* Subtle animated cyber grid */
-.stApp::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    background-image:
-        linear-gradient(rgba(0,242,255,0.02) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(0,242,255,0.02) 1px, transparent 1px);
-    background-size: 52px 52px;
-    animation: gridScroll 30s linear infinite;
-    pointer-events: none;
-    z-index: 0;
-}
-@keyframes gridScroll {
-    from { background-position: 0 0; }
-    to   { background-position: 52px 52px; }
+        radial-gradient(ellipse 700px 500px at 20% 10%,
+            rgba(59,130,246,0.08) 0%, transparent 60%),
+        radial-gradient(ellipse 600px 500px at 80% 90%,
+            rgba(99,102,241,0.06) 0%, transparent 60%) !important;
 }
 
 
@@ -101,32 +83,31 @@ header, footer, #MainMenu { visibility: hidden !important; }
 [data-testid="stMainBlockContainer"] {
     position: relative !important;
     z-index: 2 !important;
-    background: rgba(9, 13, 21, 0.92) !important;
-    backdrop-filter: blur(28px) !important;
-    -webkit-backdrop-filter: blur(28px) !important;
-    border: 1px solid rgba(255, 255, 255, 0.065) !important;
-    border-radius: 28px !important;
-    padding: 2.8rem 2.8rem 2.2rem !important;
-    max-width: 460px !important;
-    margin: 3.5rem auto 2rem !important;
+    background: rgba(15, 23, 42, 0.92) !important;
+    backdrop-filter: blur(20px) !important;
+    -webkit-backdrop-filter: blur(20px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.06) !important;
+    border-radius: 20px !important;
+    padding: 2.5rem 2.5rem 2rem !important;
+    max-width: 440px !important;
+    margin: 3rem auto 2rem !important;
     box-shadow:
-        0 32px 72px rgba(0, 0, 0, 0.65),
-        0 0   60px rgba(112, 0, 255, 0.09),
-        inset 0 1px 0 rgba(255, 255, 255, 0.055) !important;
+        0 20px 50px rgba(0, 0, 0, 0.5),
+        inset 0 1px 0 rgba(255, 255, 255, 0.04) !important;
     overflow: visible !important;
 }
 
-/* Top gradient accent line */
+/* Top accent line */
 [data-testid="stMainBlockContainer"]::before {
     content: '';
     position: absolute;
-    top: 0; left: 8%; right: 8%;
-    height: 1.5px;
+    top: 0; left: 10%; right: 10%;
+    height: 1px;
     background: linear-gradient(
         90deg,
         transparent,
-        rgba(112, 0, 255, 0.8),
-        rgba(0, 242, 255, 0.8),
+        rgba(59,130,246,0.4),
+        rgba(99,102,241,0.4),
         transparent
     );
     border-radius: 100px;
@@ -139,30 +120,28 @@ header, footer, #MainMenu { visibility: hidden !important; }
 ══════════════════════════════════════════ */
 
 .stTextInput > div > div > input {
-    background: rgba(255, 255, 255, 0.04) !important;
-    border: 1px solid rgba(255, 255, 255, 0.1) !important;
-    border-radius: 12px !important;
-    color: #e0e6ed !important;
-    padding: 13px 16px !important;
-    font-size: 0.95rem !important;
+    background: rgba(30, 41, 59, 0.6) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    border-radius: 10px !important;
+    color: #E2E8F0 !important;
+    padding: 12px 16px !important;
+    font-size: 0.92rem !important;
     font-family: 'Outfit', sans-serif !important;
-    transition: border-color 0.22s ease, box-shadow 0.22s ease,
-                background 0.22s ease !important;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
 }
 .stTextInput > div > div > input:focus {
-    border-color: rgba(0, 242, 255, 0.52) !important;
-    box-shadow: 0 0 0 3px rgba(0, 242, 255, 0.08) !important;
-    background: rgba(0, 242, 255, 0.028) !important;
+    border-color: rgba(59,130,246,0.45) !important;
+    box-shadow: 0 0 0 3px rgba(59,130,246,0.08) !important;
     outline: none !important;
 }
 .stTextInput > div > div > input::placeholder {
-    color: rgba(138, 153, 173, 0.45) !important;
+    color: rgba(148, 163, 184, 0.4) !important;
 }
 .stTextInput > label {
-    color: #8a99ad !important;
-    font-size: 0.78rem !important;
-    font-weight: 700 !important;
-    letter-spacing: 1px !important;
+    color: #94A3B8 !important;
+    font-size: 0.76rem !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.8px !important;
     text-transform: uppercase !important;
     margin-bottom: 4px !important;
 }
@@ -174,23 +153,22 @@ header, footer, #MainMenu { visibility: hidden !important; }
 
 .stFormSubmitButton > button {
     width: 100% !important;
-    background: linear-gradient(135deg, #00c4ff 0%, #7000ff 100%) !important;
+    background: #3B82F6 !important;
     color: #fff !important;
     border: none !important;
-    padding: 14px 24px !important;
-    border-radius: 14px !important;
-    font-weight: 700 !important;
-    font-size: 0.96rem !important;
-    letter-spacing: 1.5px !important;
-    text-transform: uppercase !important;
-    box-shadow: 0 4px 22px rgba(0, 196, 255, 0.32) !important;
-    margin-top: 0.6rem !important;
-    transition: all 0.28s ease !important;
+    padding: 12px 24px !important;
+    border-radius: 10px !important;
+    font-weight: 600 !important;
+    font-size: 0.9rem !important;
+    letter-spacing: 0.5px !important;
+    box-shadow: 0 2px 10px rgba(59,130,246,0.25) !important;
+    margin-top: 0.5rem !important;
+    transition: all 0.2s ease !important;
 }
 .stFormSubmitButton > button:hover {
-    background: linear-gradient(135deg, #18d4ff 0%, #8a1aff 100%) !important;
-    box-shadow: 0 6px 32px rgba(0, 196, 255, 0.55) !important;
-    transform: translateY(-2px) !important;
+    background: #60A5FA !important;
+    box-shadow: 0 4px 16px rgba(59,130,246,0.35) !important;
+    transform: translateY(-1px) !important;
 }
 .stFormSubmitButton > button:active {
     transform: translateY(0) !important;
@@ -203,21 +181,20 @@ header, footer, #MainMenu { visibility: hidden !important; }
 
 .nav-btn .stButton > button {
     background: transparent !important;
-    border: 1.5px solid rgba(0, 242, 255, 0.35) !important;
-    color: #00f2ff !important;
-    box-shadow: 0 0 14px rgba(0, 242, 255, 0.1) !important;
-    font-size: 0.88rem !important;
+    border: 1.5px solid rgba(59,130,246,0.25) !important;
+    color: #60A5FA !important;
+    box-shadow: none !important;
+    font-size: 0.85rem !important;
     font-weight: 600 !important;
-    letter-spacing: 0.5px !important;
+    letter-spacing: 0.3px !important;
     padding: 10px 20px !important;
-    border-radius: 12px !important;
+    border-radius: 10px !important;
     text-transform: none !important;
-    transition: all 0.26s ease !important;
+    transition: all 0.2s ease !important;
 }
 .nav-btn .stButton > button:hover {
-    background: rgba(0, 242, 255, 0.08) !important;
-    border-color: rgba(0, 242, 255, 0.65) !important;
-    box-shadow: 0 0 24px rgba(0, 242, 255, 0.28) !important;
+    background: rgba(59,130,246,0.06) !important;
+    border-color: rgba(59,130,246,0.45) !important;
     transform: translateY(-1px) !important;
 }
 
@@ -227,8 +204,8 @@ header, footer, #MainMenu { visibility: hidden !important; }
 ══════════════════════════════════════════ */
 
 [data-testid="stAlert"] {
-    border-radius: 12px !important;
-    font-size: 0.9rem !important;
+    border-radius: 10px !important;
+    font-size: 0.88rem !important;
 }
 
 
@@ -239,7 +216,7 @@ header, footer, #MainMenu { visibility: hidden !important; }
 .auth-divider {
     height: 1px;
     background: linear-gradient(
-        90deg, transparent, rgba(255,255,255,0.09), transparent
+        90deg, transparent, rgba(255,255,255,0.06), transparent
     );
     margin: 1.4rem 0 1.2rem;
 }
@@ -250,11 +227,11 @@ header, footer, #MainMenu { visibility: hidden !important; }
 ══════════════════════════════════════════ */
 
 @keyframes fadeUp {
-    from { opacity: 0; transform: translateY(22px); }
+    from { opacity: 0; transform: translateY(16px); }
     to   { opacity: 1; transform: translateY(0); }
 }
 .anim-fade-up {
-    animation: fadeUp 0.55s ease-out both;
+    animation: fadeUp 0.4s ease-out both;
 }
 </style>
 """
@@ -268,7 +245,7 @@ st.markdown(AUTH_CSS, unsafe_allow_html=True)
 
 with st.sidebar:
     st.markdown(
-        '<div class="sidebar-header">⚡ PAAS</div>',
+        '<div class="sidebar-header">📊 PAAS</div>',
         unsafe_allow_html=True,
     )
     st.markdown("---")
@@ -290,23 +267,20 @@ with st.sidebar:
 #  CARD HEADER — branding
 # ═══════════════════════════════════════════════════════════════════════════
 
-# NOTE: All HTML is kept on single lines with no blank lines inside blocks.
-# CommonMark terminates a <div> HTML block on the first blank line it sees,
-# which causes subsequent indented content to be rendered as a code block.
 st.markdown(
-    '<div class="anim-fade-up" style="text-align:center;margin-bottom:1.8rem;">'
+    '<div class="anim-fade-up" style="text-align:center;margin-bottom:1.6rem;">'
     '<div style="display:inline-flex;align-items:center;justify-content:center;'
-    "width:62px;height:62px;border-radius:18px;"
-    "background:linear-gradient(140deg,#7000ff 0%,#00c4ff 100%);"
-    "box-shadow:0 0 28px rgba(112,0,255,0.5),0 6px 18px rgba(0,0,0,0.4);"
-    'font-size:1.7rem;margin-bottom:1rem;">⚡</div>'
-    '<div style="font-size:0.65rem;font-weight:700;letter-spacing:4px;'
-    "text-transform:uppercase;color:#00f2ff;"
-    'text-shadow:0 0 14px rgba(0,242,255,0.4);margin-bottom:1.1rem;">'
+    "width:56px;height:56px;border-radius:14px;"
+    "background:#3B82F6;"
+    "box-shadow:0 4px 16px rgba(59,130,246,0.3);"
+    'font-size:1.5rem;margin-bottom:0.8rem;">🔐</div>'
+    '<div style="font-size:0.62rem;font-weight:600;letter-spacing:3px;'
+    "text-transform:uppercase;color:#60A5FA;"
+    'margin-bottom:1rem;">'
     "Predictive Asset Allocation System</div>"
-    '<h1 style="font-size:1.65rem;font-weight:800;color:#e0e6ed;'
-    'letter-spacing:-0.4px;margin:0 0 0.3rem;">Welcome back</h1>'
-    '<p style="font-size:0.875rem;color:#8a99ad;margin:0;line-height:1.5;">'
+    '<h1 style="font-size:1.5rem;font-weight:800;color:#E2E8F0;'
+    'letter-spacing:-0.3px;margin:0 0 0.3rem;">Welcome back</h1>'
+    '<p style="font-size:0.85rem;color:#94A3B8;margin:0;line-height:1.5;">'
     "Sign in to access your portfolio dashboard</p>"
     "</div>",
     unsafe_allow_html=True,
@@ -385,8 +359,8 @@ st.markdown(
     """
 <p style="
     text-align: center;
-    color: #8a99ad;
-    font-size: 0.875rem;
+    color: #94A3B8;
+    font-size: 0.85rem;
     margin-bottom: 0.7rem;
 ">Don't have an account?</p>
 """,
@@ -408,11 +382,11 @@ st.markdown(
     """
 <p style="
     text-align: center;
-    color: #8a99ad;
-    font-size: 0.72rem;
-    letter-spacing: 0.5px;
+    color: #64748B;
+    font-size: 0.7rem;
+    letter-spacing: 0.3px;
     margin-top: 1.4rem;
-    opacity: 0.65;
+    opacity: 0.7;
 ">
     PAAS · Predictive Asset Allocation System
 </p>

@@ -2,8 +2,8 @@
 Predictive Asset Allocation System — Landing Page
 
 Entry point for the Streamlit multi-page application.
-Stunning cyberpunk/fintech hero page with animated background,
-feature showcase, and how-it-works walkthrough.
+Professional fintech hero page with feature showcase and
+how-it-works walkthrough.
 """
 
 import sys
@@ -41,6 +41,7 @@ st.set_page_config(
     page_title="PAAS | Home",
     page_icon="📊",
     layout="wide",
+    initial_sidebar_state="expanded",
 )
 
 
@@ -57,76 +58,9 @@ st.markdown(get_custom_css(), unsafe_allow_html=True)
 
 LANDING_CSS = """
 <style>
-/* ── Hide default Streamlit chrome (already in get_custom_css but belt+braces) */
-header, footer, #MainMenu { visibility: hidden !important; }
+footer, #MainMenu { visibility: hidden !important; }
+header { background: transparent !important; box-shadow: none !important; }
 [data-testid="stSidebarNav"] { display: none !important; }
-
-/* ══════════════════════════════════════════════════════
-   BACKGROUND FX
-══════════════════════════════════════════════════════ */
-
-/* Animated orb layer  */
-.bg-orb {
-    position: fixed;
-    border-radius: 50%;
-    pointer-events: none;
-    z-index: 0;
-}
-.bg-orb-purple {
-    width: 780px;
-    height: 780px;
-    background: radial-gradient(circle, rgba(112,0,255,0.22) 0%, transparent 70%);
-    top: -320px;
-    left: -250px;
-    animation: orbDrift1 20s ease-in-out infinite;
-}
-.bg-orb-cyan {
-    width: 640px;
-    height: 640px;
-    background: radial-gradient(circle, rgba(0,242,255,0.11) 0%, transparent 70%);
-    bottom: -200px;
-    right: -180px;
-    animation: orbDrift2 16s ease-in-out infinite;
-}
-.bg-orb-mid {
-    width: 420px;
-    height: 420px;
-    background: radial-gradient(circle, rgba(0,255,157,0.05) 0%, transparent 70%);
-    top: 40%;
-    left: 55%;
-    animation: orbDrift3 24s ease-in-out infinite;
-}
-@keyframes orbDrift1 {
-    0%, 100% { transform: translate(0, 0) scale(1); }
-    50%       { transform: translate(70px, 55px) scale(1.06); }
-}
-@keyframes orbDrift2 {
-    0%, 100% { transform: translate(0, 0) scale(1); }
-    50%       { transform: translate(-55px, -70px) scale(1.08); }
-}
-@keyframes orbDrift3 {
-    0%, 100% { transform: translate(-50%, -50%) scale(1); }
-    50%       { transform: translate(-42%, -58%) scale(1.12); }
-}
-
-/* Scrolling cyber grid */
-.cyber-grid {
-    position: fixed;
-    top: 0; left: 0;
-    width: 100%; height: 100%;
-    background-image:
-        linear-gradient(rgba(0,242,255,0.024) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(0,242,255,0.024) 1px, transparent 1px);
-    background-size: 64px 64px;
-    animation: gridScroll 28s linear infinite;
-    pointer-events: none;
-    z-index: 0;
-}
-@keyframes gridScroll {
-    from { background-position: 0 0; }
-    to   { background-position: 64px 64px; }
-}
-
 
 /* ══════════════════════════════════════════════════════
    HERO SECTION
@@ -136,119 +70,93 @@ header, footer, #MainMenu { visibility: hidden !important; }
     position: relative;
     z-index: 2;
     text-align: center;
-    padding: 5.5rem 2rem 1.5rem;
+    padding: 4rem 2rem 1rem;
 }
 
 .hero-badge {
     display: inline-flex;
     align-items: center;
-    gap: 9px;
-    padding: 7px 22px;
-    background: rgba(0,242,255,0.07);
-    border: 1px solid rgba(0,242,255,0.32);
+    gap: 8px;
+    padding: 6px 18px;
+    background: rgba(59,130,246,0.08);
+    border: 1px solid rgba(59,130,246,0.2);
     border-radius: 100px;
-    color: #00f2ff;
-    font-size: 0.68rem;
-    font-weight: 700;
-    letter-spacing: 4px;
+    color: #60A5FA;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 2.5px;
     text-transform: uppercase;
-    margin-bottom: 2.2rem;
-    animation: fadeSlideDown 0.7s ease-out both;
-}
-.hero-badge::before {
-    content: '⚡';
-    font-size: 0.8rem;
+    margin-bottom: 2rem;
+    animation: fadeSlideDown 0.5s ease-out both;
 }
 
 .hero-title {
-    font-size: clamp(2.8rem, 6.8vw, 5.8rem);
-    font-weight: 900;
-    line-height: 1.06;
-    letter-spacing: -2px;
-    color: #e0e6ed;
-    margin: 0 0 1.6rem;
-    animation: fadeSlideUp 0.9s ease-out 0.18s both;
+    display: block;
+    font-size: clamp(1.8rem, 3.8vw, 3.2rem);
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -1.5px;
+    color: #E2E8F0;
+    margin: 0 0 1.4rem;
+    animation: fadeSlideUp 0.6s ease-out 0.1s both;
 }
 
-/* Glowing cyan accent for "ASSET ALLOCATION" */
-.hero-title .glow {
-    display: inline-block;
-    color: #00f2ff;
-    text-shadow:
-        0 0 24px rgba(0,242,255,0.75),
-        0 0 60px rgba(0,242,255,0.45),
-        0 0 100px rgba(0,242,255,0.22);
-    animation: cyanBreath 3.8s ease-in-out infinite;
-}
-@keyframes cyanBreath {
-    0%, 100% {
-        text-shadow:
-            0 0 24px rgba(0,242,255,0.75),
-            0 0 60px rgba(0,242,255,0.45),
-            0 0 100px rgba(0,242,255,0.22);
-    }
-    50% {
-        text-shadow:
-            0 0 40px rgba(0,242,255,0.98),
-            0 0 90px rgba(0,242,255,0.65),
-            0 0 150px rgba(0,242,255,0.32),
-            0 0 200px rgba(0,242,255,0.12);
-    }
+.hero-title .accent {
+    color: #3B82F6;
 }
 
 .hero-tagline {
-    font-size: clamp(1rem, 2.1vw, 1.22rem);
-    color: #8a99ad;
-    line-height: 1.8;
-    letter-spacing: 0.3px;
-    max-width: 520px;
+    font-size: clamp(0.95rem, 1.8vw, 1.15rem);
+    color: #94A3B8;
+    line-height: 1.75;
+    letter-spacing: 0.2px;
+    max-width: 480px;
     margin: 0 auto 2rem;
-    animation: fadeSlideUp 0.9s ease-out 0.32s both;
+    animation: fadeSlideUp 0.6s ease-out 0.2s both;
 }
-.hero-tagline strong { color: #c8d4e0; font-weight: 600; }
+.hero-tagline strong { color: #CBD5E1; font-weight: 600; }
 
 
 /* ══════════════════════════════════════════════════════
    CTA BUTTON OVERRIDES
 ══════════════════════════════════════════════════════ */
 
-/* Primary — cyan-to-purple gradient */
 button[kind="primary"],
 [data-testid="stBaseButton-primary"] {
-    background: linear-gradient(135deg, #00c4ff 0%, #7000ff 100%) !important;
+    background: #3B82F6 !important;
     border: none !important;
     color: #ffffff !important;
-    box-shadow: 0 4px 22px rgba(0,196,255,0.38) !important;
-    font-size: 0.93rem !important;
-    font-weight: 700 !important;
-    letter-spacing: 0.8px !important;
-    transition: all 0.28s ease !important;
+    box-shadow: 0 2px 8px rgba(59,130,246,0.25) !important;
+    font-size: 0.88rem !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.3px !important;
+    border-radius: 10px !important;
+    transition: all 0.2s ease !important;
 }
 button[kind="primary"]:hover,
 [data-testid="stBaseButton-primary"]:hover {
-    background: linear-gradient(135deg, #18d4ff 0%, #8a1aff 100%) !important;
-    box-shadow: 0 6px 30px rgba(0,196,255,0.58) !important;
-    transform: translateY(-2px) !important;
+    background: #60A5FA !important;
+    box-shadow: 0 4px 16px rgba(59,130,246,0.35) !important;
+    transform: translateY(-1px) !important;
 }
 
-/* Secondary — outlined cyan */
 button[kind="secondary"],
 [data-testid="stBaseButton-secondary"] {
-    background: rgba(0,242,255,0.05) !important;
-    border: 1.5px solid rgba(0,242,255,0.42) !important;
-    color: #00f2ff !important;
-    box-shadow: 0 0 16px rgba(0,242,255,0.12) !important;
-    font-size: 0.93rem !important;
-    font-weight: 700 !important;
-    letter-spacing: 0.8px !important;
-    transition: all 0.28s ease !important;
+    background: transparent !important;
+    border: 1.5px solid rgba(59,130,246,0.3) !important;
+    color: #60A5FA !important;
+    box-shadow: none !important;
+    font-size: 0.88rem !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.3px !important;
+    border-radius: 10px !important;
+    transition: all 0.2s ease !important;
 }
 button[kind="secondary"]:hover,
 [data-testid="stBaseButton-secondary"]:hover {
-    background: rgba(0,242,255,0.12) !important;
-    border-color: rgba(0,242,255,0.7) !important;
-    box-shadow: 0 0 28px rgba(0,242,255,0.32) !important;
-    transform: translateY(-2px) !important;
+    background: rgba(59,130,246,0.08) !important;
+    border-color: rgba(59,130,246,0.5) !important;
+    transform: translateY(-1px) !important;
 }
 
 
@@ -259,29 +167,28 @@ button[kind="secondary"]:hover,
 .stats-bar {
     display: flex;
     justify-content: center;
-    gap: 3.5rem;
+    gap: 3rem;
     flex-wrap: wrap;
-    margin: 1.8rem 0 3.8rem;
+    margin: 1.5rem 0 3rem;
     position: relative;
     z-index: 2;
-    animation: fadeIn 1.1s ease-out 0.65s both;
+    animation: fadeIn 0.8s ease-out 0.4s both;
 }
 .stat-item { text-align: center; }
 .stat-num {
     display: block;
     font-family: 'JetBrains Mono', monospace;
-    font-size: 1.9rem;
+    font-size: 1.7rem;
     font-weight: 700;
-    color: #00f2ff;
-    text-shadow: 0 0 18px rgba(0,242,255,0.45);
+    color: #E2E8F0;
     line-height: 1.1;
 }
 .stat-lbl {
     display: block;
-    font-size: 0.68rem;
-    color: #8a99ad;
+    font-size: 0.65rem;
+    color: #94A3B8;
     text-transform: uppercase;
-    letter-spacing: 2.2px;
+    letter-spacing: 2px;
     margin-top: 4px;
     font-weight: 600;
 }
@@ -296,11 +203,11 @@ button[kind="secondary"]:hover,
     background: linear-gradient(
         90deg,
         transparent,
-        rgba(0,242,255,0.22),
-        rgba(112,0,255,0.22),
+        rgba(59,130,246,0.12),
+        rgba(99,102,241,0.12),
         transparent
     );
-    margin: 0.5rem 0 3.8rem;
+    margin: 0.5rem 0 3rem;
     position: relative;
     z-index: 2;
 }
@@ -312,18 +219,18 @@ button[kind="secondary"]:hover,
 
 .s-head {
     text-align: center;
-    font-size: clamp(1.65rem, 3.2vw, 2.25rem);
+    font-size: clamp(1.5rem, 3vw, 2.1rem);
     font-weight: 800;
-    color: #e0e6ed;
-    letter-spacing: -0.6px;
+    color: #E2E8F0;
+    letter-spacing: -0.5px;
     position: relative;
     z-index: 2;
     margin-bottom: 0.4rem;
 }
 .s-sub {
     text-align: center;
-    font-size: 0.92rem;
-    color: #8a99ad;
+    font-size: 0.9rem;
+    color: #94A3B8;
     position: relative;
     z-index: 2;
     margin-bottom: 2.5rem;
@@ -336,67 +243,62 @@ button[kind="secondary"]:hover,
 ══════════════════════════════════════════════════════ */
 
 .feat-card {
-    background: rgba(11, 15, 24, 0.88);
-    backdrop-filter: blur(18px);
-    -webkit-backdrop-filter: blur(18px);
-    border: 1px solid rgba(255,255,255,0.055);
-    border-radius: 20px;
-    padding: 2rem 1.75rem;
-    min-height: 210px;
+    background: rgba(15, 23, 42, 0.75);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,0.05);
+    border-radius: 16px;
+    padding: 2rem 1.6rem;
+    min-height: 200px;
     position: relative;
     z-index: 2;
     overflow: hidden;
-    transition: all 0.38s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: border-color 0.25s ease, box-shadow 0.25s ease;
 }
 .feat-card::before {
     content: '';
     position: absolute;
-    top: 0; left: 5%; right: 5%;
-    height: 1.5px;
-    background: linear-gradient(90deg, transparent, var(--fc-glow, #00f2ff), transparent);
-    opacity: 0.55;
-    transition: opacity 0.38s ease;
+    top: 0; left: 8%; right: 8%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--fc-accent, rgba(59,130,246,0.3)), transparent);
+    opacity: 0.5;
+    transition: opacity 0.25s ease;
 }
 .feat-card:hover {
-    border-color: rgba(0,242,255,0.2);
-    box-shadow:
-        0 22px 60px rgba(0,0,0,0.55),
-        0 0 40px rgba(0,242,255,0.06);
-    transform: translateY(-5px);
+    border-color: rgba(59,130,246,0.12);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.3);
 }
 .feat-card:hover::before { opacity: 1; }
 
 .feat-icon {
     display: block;
-    font-size: 2.3rem;
-    margin-bottom: 1.1rem;
-    filter: drop-shadow(0 0 8px rgba(0,242,255,0.3));
+    font-size: 2rem;
+    margin-bottom: 1rem;
 }
 .feat-name {
-    font-size: 1.05rem;
+    font-size: 1.02rem;
     font-weight: 700;
-    color: #e0e6ed;
-    margin-bottom: 0.55rem;
-    letter-spacing: 0.1px;
+    color: #E2E8F0;
+    margin-bottom: 0.5rem;
 }
 .feat-desc {
-    font-size: 0.875rem;
-    color: #8a99ad;
-    line-height: 1.68;
+    font-size: 0.85rem;
+    color: #94A3B8;
+    line-height: 1.65;
 }
 .feat-pill {
     display: inline-block;
-    margin-top: 1.1rem;
-    padding: 4px 13px;
+    margin-top: 1rem;
+    padding: 4px 12px;
     border-radius: 100px;
-    font-size: 0.66rem;
-    font-weight: 700;
-    letter-spacing: 1.2px;
+    font-size: 0.63rem;
+    font-weight: 600;
+    letter-spacing: 1px;
     text-transform: uppercase;
 }
-.pill-cyan   { background:rgba(0,242,255,0.1);  color:#00f2ff;  border:1px solid rgba(0,242,255,0.32); }
-.pill-purple { background:rgba(112,0,255,0.1);  color:#a060ff;  border:1px solid rgba(112,0,255,0.32); }
-.pill-green  { background:rgba(0,255,157,0.1);  color:#00ff9d;  border:1px solid rgba(0,255,157,0.32); }
+.pill-blue   { background:rgba(59,130,246,0.1); color:#60A5FA; border:1px solid rgba(59,130,246,0.2); }
+.pill-indigo { background:rgba(99,102,241,0.1); color:#818CF8; border:1px solid rgba(99,102,241,0.2); }
+.pill-green  { background:rgba(16,185,129,0.1); color:#34D399; border:1px solid rgba(16,185,129,0.2); }
 
 
 /* ══════════════════════════════════════════════════════
@@ -405,52 +307,46 @@ button[kind="secondary"]:hover,
 
 .hiw-step {
     text-align: center;
-    padding: 0.8rem 1.2rem;
+    padding: 0.6rem 1rem;
     position: relative;
     z-index: 2;
 }
 .hiw-num {
-    width: 58px;
-    height: 58px;
-    border-radius: 16px;
-    background: linear-gradient(140deg, #7000ff 0%, #3200bb 100%);
+    width: 50px;
+    height: 50px;
+    border-radius: 14px;
+    background: #3B82F6;
     display: flex;
     align-items: center;
     justify-content: center;
     font-family: 'JetBrains Mono', monospace;
-    font-size: 1.3rem;
+    font-size: 1.1rem;
     font-weight: 800;
     color: #fff;
-    margin: 0 auto 1.2rem;
-    box-shadow: 0 0 26px rgba(112,0,255,0.5), 0 4px 14px rgba(0,0,0,0.3);
+    margin: 0 auto 1rem;
+    box-shadow: 0 2px 12px rgba(59,130,246,0.3);
 }
 .hiw-title {
-    font-size: 1.0rem;
+    font-size: 0.95rem;
     font-weight: 700;
-    color: #e0e6ed;
-    margin-bottom: 0.5rem;
+    color: #E2E8F0;
+    margin-bottom: 0.4rem;
 }
 .hiw-desc {
-    font-size: 0.865rem;
-    color: #8a99ad;
-    line-height: 1.68;
+    font-size: 0.84rem;
+    color: #94A3B8;
+    line-height: 1.65;
 }
 
-/* Connector arrow between steps */
 .hiw-arrow {
     display: flex;
     align-items: flex-start;
     justify-content: center;
-    padding-top: 2.4rem;
+    padding-top: 2rem;
     position: relative;
     z-index: 2;
-    font-size: 1.55rem;
-    color: rgba(112,0,255,0.55);
-    animation: arrowPulse 2.4s ease-in-out infinite;
-}
-@keyframes arrowPulse {
-    0%, 100% { color: rgba(112,0,255,0.4); }
-    50%       { color: rgba(0,242,255,0.7); }
+    font-size: 1.4rem;
+    color: rgba(59,130,246,0.35);
 }
 
 
@@ -462,17 +358,16 @@ button[kind="secondary"]:hover,
     position: relative;
     z-index: 2;
     text-align: center;
-    padding: 2.8rem 1rem 2rem;
-    margin-top: 4.5rem;
-    border-top: 1px solid rgba(255,255,255,0.055);
-    color: #8a99ad;
-    font-size: 0.8rem;
-    letter-spacing: 0.5px;
+    padding: 2.5rem 1rem 1.8rem;
+    margin-top: 4rem;
+    border-top: 1px solid rgba(255,255,255,0.04);
+    color: #64748B;
+    font-size: 0.78rem;
+    letter-spacing: 0.3px;
 }
 .lp-footer .brand {
-    color: #00f2ff;
+    color: #3B82F6;
     font-weight: 700;
-    text-shadow: 0 0 12px rgba(0,242,255,0.35);
 }
 .lp-footer .sep { margin: 0 0.5rem; opacity: 0.4; }
 
@@ -482,11 +377,11 @@ button[kind="secondary"]:hover,
 ══════════════════════════════════════════════════════ */
 
 @keyframes fadeSlideDown {
-    from { opacity: 0; transform: translateY(-18px); }
+    from { opacity: 0; transform: translateY(-14px); }
     to   { opacity: 1; transform: translateY(0); }
 }
 @keyframes fadeSlideUp {
-    from { opacity: 0; transform: translateY(30px); }
+    from { opacity: 0; transform: translateY(20px); }
     to   { opacity: 1; transform: translateY(0); }
 }
 @keyframes fadeIn {
@@ -500,11 +395,11 @@ button[kind="secondary"]:hover,
 ══════════════════════════════════════════════════════ */
 
 [data-testid="stSidebarContent"] [data-testid="stPageLink-NavLink"] {
-    border-radius: 10px;
-    transition: background 0.2s ease;
+    border-radius: 8px;
+    transition: background 0.15s ease;
 }
 [data-testid="stSidebarContent"] [data-testid="stPageLink-NavLink"]:hover {
-    background: rgba(0,242,255,0.08) !important;
+    background: rgba(59,130,246,0.08) !important;
 }
 </style>
 """
@@ -520,12 +415,12 @@ with st.sidebar:
     # ── Branding ──────────────────────────────────────────────────────────
     st.markdown(
         """
-        <div class="sidebar-header">⚡ PAAS</div>
+        <div class="sidebar-header">📊 PAAS</div>
         <p style="
-            color:#8a99ad;
+            color:#94A3B8;
             font-size:0.7rem;
-            margin:-0.3rem 0 0.8rem;
-            letter-spacing:1.8px;
+            margin:-0.1rem 0 0.8rem;
+            letter-spacing:1.5px;
             text-transform:uppercase;
         ">
             Predictive Asset Allocation
@@ -538,8 +433,8 @@ with st.sidebar:
 
     # ── Core navigation ───────────────────────────────────────────────────
     st.markdown(
-        "<p style='color:#8a99ad;font-size:0.75rem;font-weight:700;"
-        "letter-spacing:1.5px;text-transform:uppercase;margin-bottom:0.4rem;'>"
+        "<p style='color:#94A3B8;font-size:0.72rem;font-weight:600;"
+        "letter-spacing:1.2px;text-transform:uppercase;margin-bottom:0.4rem;'>"
         "Navigation</p>",
         unsafe_allow_html=True,
     )
@@ -554,13 +449,13 @@ with st.sidebar:
         st.markdown(
             f"""
             <div style="
-                background: rgba(0,242,255,0.07);
-                border: 1px solid rgba(0,242,255,0.2);
-                border-radius: 12px;
+                background: rgba(59,130,246,0.06);
+                border: 1px solid rgba(59,130,246,0.12);
+                border-radius: 10px;
                 padding: 9px 14px;
                 margin-bottom: 0.6rem;
             ">
-                <span style="color:#00f2ff;font-size:0.88rem;font-weight:600;">
+                <span style="color:#60A5FA;font-size:0.85rem;font-weight:600;">
                     👤 {uname}
                 </span>
             </div>
@@ -573,11 +468,11 @@ with st.sidebar:
         my_page = Path(__file__).parent / "pages" / "4_My_Portfolios.py"
 
         if create_page.exists():
-            st.page_link("pages/3_Create_Portfolio.py", label="📊  Create Portfolio")
+            st.page_link("pages/3_Create_Portfolio.py", label="Create Portfolio")
         else:
             st.markdown(
-                "<span style='color:#8a99ad;font-size:0.85rem;padding-left:4px;'>"
-                "📊 Create Portfolio <em style='font-size:0.7rem;'>(soon)</em></span>",
+                "<span style='color:#94A3B8;font-size:0.85rem;padding-left:4px;'>"
+                "Create Portfolio <em style='font-size:0.7rem;'>(soon)</em></span>",
                 unsafe_allow_html=True,
             )
 
@@ -585,7 +480,7 @@ with st.sidebar:
             st.page_link("pages/4_My_Portfolios.py", label="💼  My Portfolios")
         else:
             st.markdown(
-                "<span style='color:#8a99ad;font-size:0.85rem;padding-left:4px;'>"
+                "<span style='color:#94A3B8;font-size:0.85rem;padding-left:4px;'>"
                 "💼 My Portfolios <em style='font-size:0.7rem;'>(soon)</em></span>",
                 unsafe_allow_html=True,
             )
@@ -593,7 +488,7 @@ with st.sidebar:
     st.markdown("---")
     st.markdown(
         """
-        <p style="color:#8a99ad;font-size:0.73rem;line-height:1.7;padding:0 2px;">
+        <p style="color:#64748B;font-size:0.72rem;line-height:1.7;padding:0 2px;">
             AI risk profiling &nbsp;·&nbsp; Smart allocation<br>
             Backtesting &nbsp;·&nbsp; S&amp;P 500 comparison
         </p>
@@ -603,39 +498,18 @@ with st.sidebar:
 
 
 # ═════════════════════════════════════════════════════════════════════════════
-#  BACKGROUND DECORATIONS  (rendered first so content stacks above)
-# ═════════════════════════════════════════════════════════════════════════════
-
-st.markdown(
-    """
-<div class="bg-orb bg-orb-purple"></div>
-<div class="bg-orb bg-orb-cyan"></div>
-<div class="bg-orb bg-orb-mid"></div>
-<div class="cyber-grid"></div>
-""",
-    unsafe_allow_html=True,
-)
-
-
-# ═════════════════════════════════════════════════════════════════════════════
 #  HERO SECTION
 # ═════════════════════════════════════════════════════════════════════════════
 
 st.markdown(
-    """
-<div class="hero">
-    <div class="hero-badge">AI-POWERED INVESTMENT PLATFORM</div>
-    <h1 class="hero-title">
-        PREDICTIVE<br>
-        <span class="glow">ASSET ALLOCATION</span><br>
-        SYSTEM
-    </h1>
-    <p class="hero-tagline">
-        <strong>AI-powered</strong> portfolio optimization.<br>
-        Risk-aware. Data-driven.
-    </p>
-</div>
-""",
+    '<div class="hero">'
+    '<div class="hero-badge">⚡  AI-POWERED INVESTMENT PLATFORM</div>'
+    '<div class="hero-title">PREDICTIVE <span class="accent">ASSET ALLOCATION</span> SYSTEM</div>'
+    '<div class="hero-tagline" style="text-align:center;max-width:480px;margin:0 auto 2rem;">'
+    '<strong>AI-powered</strong> portfolio optimization.<br>'
+    "Risk-aware. Data-driven."
+    "</div>"
+    "</div>",
     unsafe_allow_html=True,
 )
 
@@ -696,7 +570,7 @@ st.markdown(
     """
 <div class="s-head">
     Everything you need to invest
-    <span style="color:#00f2ff;">smarter</span>
+    <span style="color:#3B82F6;">smarter</span>
 </div>
 <div class="s-sub">
     Three powerful ML systems working in concert — from risk prediction to
@@ -711,7 +585,7 @@ fc1, fc2, fc3 = st.columns(3, gap="large")
 with fc1:
     st.markdown(
         """
-    <div class="feat-card" style="--fc-glow:#00f2ff;">
+    <div class="feat-card" style="--fc-accent:rgba(59,130,246,0.3);">
         <span class="feat-icon">🧠</span>
         <div class="feat-name">AI Risk Profiling</div>
         <div class="feat-desc">
@@ -719,7 +593,7 @@ with fc1:
             model trained on real investor behavioural data — powered by
             PCA-based dimensionality reduction and ensemble scoring.
         </div>
-        <span class="feat-pill pill-cyan">Machine Learning</span>
+        <span class="feat-pill pill-blue">Machine Learning</span>
     </div>
     """,
         unsafe_allow_html=True,
@@ -728,7 +602,7 @@ with fc1:
 with fc2:
     st.markdown(
         """
-    <div class="feat-card" style="--fc-glow:#a060ff;">
+    <div class="feat-card" style="--fc-accent:rgba(99,102,241,0.3);">
         <span class="feat-icon">📈</span>
         <div class="feat-name">Smart Allocation</div>
         <div class="feat-desc">
@@ -737,7 +611,7 @@ with fc2:
             Capital is distributed intelligently to match your exact
             risk profile and investment horizon.
         </div>
-        <span class="feat-pill pill-purple">Multi-Factor</span>
+        <span class="feat-pill pill-indigo">Multi-Factor</span>
     </div>
     """,
         unsafe_allow_html=True,
@@ -746,7 +620,7 @@ with fc2:
 with fc3:
     st.markdown(
         """
-    <div class="feat-card" style="--fc-glow:#00ff9d;">
+    <div class="feat-card" style="--fc-accent:rgba(16,185,129,0.3);">
         <span class="feat-icon">📊</span>
         <div class="feat-name">Real Backtesting</div>
         <div class="feat-desc">
@@ -772,7 +646,7 @@ st.markdown('<div class="qdiv" style="margin-top:3rem;"></div>', unsafe_allow_ht
 st.markdown(
     """
 <div class="s-head" style="margin-top:1rem;">
-    How it <span style="color:#7000ff;">works</span>
+    How it <span style="color:#6366F1;">works</span>
 </div>
 <div class="s-sub">
     From questionnaire to a fully optimized, backtested portfolio — in three steps.

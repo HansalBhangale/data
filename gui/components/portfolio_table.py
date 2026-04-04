@@ -11,7 +11,7 @@ import plotly.graph_objects as go
 def render_holdings_pie(portfolio: dict):
     """
     Render a pie chart of top holdings.
-    
+
     Parameters
     ----------
     portfolio : dict
@@ -20,26 +20,26 @@ def render_holdings_pie(portfolio: dict):
     if not portfolio or 'allocations' not in portfolio:
         st.warning("No portfolio data available")
         return
-    
+
     allocations = portfolio['allocations']
-    
+
     # Prepare data (top 10 + cash)
     top_holdings = allocations[:10]
     labels = [a['ticker'] for a in top_holdings]
     values = [a['weight_pct'] for a in top_holdings]
-    
+
     # Add cash if present
     if portfolio.get('cash_weight', 0) > 0:
         labels.append('Cash')
         values.append(portfolio['cash_weight'])
-    
-    # Color palette
+
+    # Professional color palette
     colors = [
-        '#00f2ff', '#7000ff', '#00ff9d', '#ff0055', '#ffaa00',
-        '#0066ff', '#ff66aa', '#66ffcc', '#ff9933', '#6699ff',
-        '#cccccc'
+        '#3B82F6', '#6366F1', '#10B981', '#EF4444', '#F59E0B',
+        '#06B6D4', '#EC4899', '#14B8A6', '#F97316', '#8B5CF6',
+        '#64748B'
     ]
-    
+
     fig = go.Figure(data=[go.Pie(
         labels=labels,
         values=values,
@@ -47,9 +47,9 @@ def render_holdings_pie(portfolio: dict):
         marker_colors=colors[:len(labels)],
         textinfo='label+percent',
         textposition='outside',
-        textfont={'family': 'Outfit', 'size': 11},
+        textfont={'family': 'Outfit', 'size': 11, 'color': '#94A3B8'},
     )])
-    
+
     fig.update_layout(
         showlegend=True,
         legend=dict(
@@ -58,20 +58,20 @@ def render_holdings_pie(portfolio: dict):
             y=-0.1,
             xanchor="center",
             x=0.5,
-            font={'family': 'Outfit', 'size': 11}
+            font={'family': 'Outfit', 'size': 11, 'color': '#94A3B8'}
         ),
         height=350,
         paper_bgcolor='rgba(0,0,0,0)',
         margin=dict(l=10, r=10, t=30, b=10),
     )
-    
+
     st.plotly_chart(fig, use_container_width=True)
 
 
 def render_holdings_table(portfolio: dict):
     """
     Render the full holdings table.
-    
+
     Parameters
     ----------
     portfolio : dict
@@ -80,12 +80,12 @@ def render_holdings_table(portfolio: dict):
     if not portfolio or 'allocations' not in portfolio:
         st.warning("No holdings to display")
         return
-    
+
     allocations = portfolio['allocations']
-    
+
     # Create DataFrame
     df = pd.DataFrame(allocations)
-    
+
     # Format columns for display
     display_df = pd.DataFrame({
         'Ticker': df['ticker'],
@@ -96,7 +96,7 @@ def render_holdings_table(portfolio: dict):
         'Weight': df['weight_pct'].apply(lambda x: f"{x:.1f}%"),
         'Capital': df['capital_allocated'].apply(lambda x: f"${x:,.0f}"),
     })
-    
+
     # Display with styling
     st.dataframe(
         display_df,
@@ -117,7 +117,7 @@ def render_holdings_table(portfolio: dict):
 def render_portfolio_summary(portfolio: dict):
     """
     Render portfolio summary metrics.
-    
+
     Parameters
     ----------
     portfolio : dict
@@ -125,27 +125,27 @@ def render_portfolio_summary(portfolio: dict):
     """
     if not portfolio:
         return
-    
+
     col1, col2, col3, col4 = st.columns(4)
-    
+
     with col1:
         st.metric(
             label="Holdings",
             value=portfolio.get('n_holdings', 0)
         )
-    
+
     with col2:
         st.metric(
             label="Equity",
             value=f"{portfolio.get('equity_weight', 0):.0f}%"
         )
-    
+
     with col3:
         st.metric(
             label="Cash",
             value=f"{portfolio.get('cash_weight', 0):.0f}%"
         )
-    
+
     with col4:
         bucket_str = str(portfolio.get('buckets', []))
         st.metric(
