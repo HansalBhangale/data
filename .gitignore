@@ -133,3 +133,5 @@ output/model_1y.pkl
 output_technical/model_1y.pkl
 
 output_bond_ml/
+.sentiment_cache/
+.model_cache/

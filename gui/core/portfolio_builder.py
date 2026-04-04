@@ -10,7 +10,7 @@ Orchestrates the portfolio building process:
 
 import pandas as pd
 import numpy as np
-from typing import Dict, Tuple
+from typing import Dict, Tuple, List
 import streamlit as st
 
 from .data_loader import (
@@ -116,11 +116,53 @@ def get_category_name(risk_score: float) -> str:
         return 'Ultra Aggressive'
 
 
+def load_sentiment_scores(tickers: list = None) -> dict:
+    """
+    Load sentiment scores for stocks.
+    
+    Uses Marketaux API + FinBERT for real-time sentiment analysis.
+    
+    Parameters
+    ----------
+    tickers : list, optional
+        Specific tickers to get sentiment for. If None, returns empty dict.
+    
+    Returns
+    -------
+    dict
+        {ticker: sentiment_score_0_to_100}
+    """
+    import os
+    from pathlib import Path
+    
+    # Try to load .env file from multiple locations
+    for env_path in [Path(__file__).parent.parent / 'sentiment' / '.env', Path('.') / 'sentiment' / '.env']:
+        try:
+            from dotenv import load_dotenv
+            if env_path.exists():
+                load_dotenv(env_path)
+                break
+        except ImportError:
+            pass
+    
+    api_key = os.environ.get("MARKETAUX_API_KEY", "")
+    
+    if not api_key or not tickers:
+        return {}
+    
+    try:
+        from sentiment.run_sentiment import get_stock_sentiment
+        return get_stock_sentiment(tickers, use_cache=True, max_per_stock=5)
+    except Exception as e:
+        return {}
+
+
 def build_investor_portfolio(
     risk_score: float,
     capital: float = 100000,
     use_enhanced: bool = True,
     max_stocks: int = 10,
+    use_sentiment: bool = True,
 ) -> Dict:
     """
     Build a complete portfolio for an investor.
@@ -135,6 +177,8 @@ def build_investor_portfolio(
         Use enhanced portfolio builder (default: True)
     max_stocks : int
         Maximum number of stocks in portfolio (default: 10)
+    use_sentiment : bool
+        Include sentiment analysis (default: True)
     
     Returns
     -------
@@ -152,9 +196,23 @@ def build_investor_portfolio(
     if not fund_scores and not tech_scores:
         return {'error': 'No model predictions available'}
     
+    # Step 1.5: Load sentiment scores (if enabled)
+    sentiment_scores = {}
+    if use_sentiment:
+        with st.spinner("Analyzing market sentiment..."):
+            # Get top tickers to analyze sentiment for
+            top_tickers = list(fund_scores.keys())[:50]  # Analyze top 50
+            sentiment_scores = load_sentiment_scores(top_tickers)
+            if sentiment_scores:
+                print(f"Loaded sentiment for {len(sentiment_scores)} stocks")
+    
     # Step 2: Compute composite scores
     with st.spinner("Computing composite scores..."):
-        composite_df = compute_composite_scores(fund_scores, tech_scores)
+        composite_df = compute_composite_scores(
+            fund_scores, 
+            tech_scores, 
+            sentiment_scores=sentiment_scores if sentiment_scores else None
+        )
     
     if composite_df is None or composite_df.empty:
         return {'error': 'Failed to compute composite scores'}
@@ -264,6 +322,14 @@ def build_investor_portfolio(
     all_allocations = stock_allocations + bond_allocations
     all_allocations.sort(key=lambda x: x['weight_pct'], reverse=True)
     
+    # Step 9: Add sentiment scores to allocations (for portfolio holdings only)
+    stock_tickers = [a['ticker'] for a in all_allocations if a.get('type') == 'Equity']
+    bond_tickers = [a['ticker'] for a in all_allocations if a.get('type') == 'Bond']
+    sentiments = fetch_portfolio_sentiments(stock_tickers, bond_tickers)
+    
+    for alloc in all_allocations:
+        alloc['sentiment_score'] = sentiments.get(alloc['ticker'], 50.0)
+    
     # Recalculate amounts based on actual allocations
     total_equity = sum(a['capital_allocated'] for a in stock_allocations)
     total_bond = sum(a['capital_allocated'] for a in bond_allocations)
@@ -283,6 +349,137 @@ def build_investor_portfolio(
         'n_bonds': len(bond_allocations),
         'allocations': all_allocations,
     }
+
+
+def fetch_portfolio_sentiments(
+    stock_tickers: List[str],
+    bond_tickers: List[str]
+) -> Dict[str, float]:
+    """
+    Fetch sentiment scores for portfolio holdings.
+    
+    Priority:
+    1. Try Yahoo Finance + FinBERT (free, unlimited)
+    2. If Yahoo fails, try Marketaux API (may have limits)
+    3. If API fails, load from CSV files
+    4. If CSV doesn't exist, use neutral (50)
+    
+    Parameters
+    ----------
+    stock_tickers : List[str]
+        Stock tickers in portfolio
+    bond_tickers : List[str]
+        Bond tickers in portfolio
+    
+    Returns
+    -------
+    Dict[str, float]
+        {ticker: sentiment_score_0_to_100}
+    """
+    from pathlib import Path
+    import os
+    
+    results = {}
+    
+    # Step 1: Try Yahoo Finance + FinBERT (PRIMARY - free, unlimited)
+    try:
+        from sentiment.yahoo_sentiment import get_stock_sentiment_yahoo, get_bond_sentiment_yahoo
+        
+        # Get stock sentiments
+        if stock_tickers:
+            stock_sentiments = get_stock_sentiment_yahoo(stock_tickers, max_per_stock=5)
+            results.update(stock_sentiments)
+        
+        # Get bond sentiments  
+        if bond_tickers:
+            bond_sentiments = get_bond_sentiment_yahoo(bond_tickers)
+            results.update(bond_sentiments)
+        
+        if results:
+            print(f"Using Yahoo Finance sentiment for {len(results)} tickers")
+            return results
+            
+    except Exception as e:
+        print(f"Yahoo Finance sentiment failed: {e}")
+        pass
+    
+    # Step 2: Try Marketaux API (fallback)
+    api_key = ""
+    for env_path in [Path(__file__).parent.parent / 'sentiment' / '.env', Path('.') / 'sentiment' / '.env']:
+        try:
+            from dotenv import load_dotenv
+            if env_path.exists():
+                load_dotenv(env_path)
+                break
+        except ImportError:
+            pass
+    
+    api_key = os.environ.get("MARKETAUX_API_KEY", "")
+    
+    if api_key:
+        try:
+            from sentiment.run_sentiment import get_stock_sentiment, get_bond_sentiment_scores
+            
+            # Get stock sentiments
+            if stock_tickers:
+                stock_sentiments = get_stock_sentiment(stock_tickers, use_cache=True, max_per_stock=3)
+                results.update(stock_sentiments)
+            
+            # Get bond sentiments
+            if bond_tickers:
+                bond_sentiments = get_bond_sentiment_scores(bond_tickers, use_cache=True)
+                results.update(bond_sentiments)
+            
+            # If we got results from API, return them
+            if results:
+                print(f"Using Marketaux API sentiment for {len(results)} tickers")
+                return results
+                
+        except Exception as e:
+            print(f"Marketaux API sentiment failed: {e}")
+            pass
+    
+    # Step 3: Try loading from CSV files
+    base_path = get_base_path()
+    stock_csv = base_path / 'output' / 'stock_sentiment.csv'
+    bond_csv = base_path / 'output' / 'bond_sentiment.csv'
+    
+    # Load stock sentiment from CSV
+    if stock_csv.exists():
+        try:
+            import pandas as pd
+            stock_df = pd.read_csv(stock_csv)
+            if 'ticker' in stock_df.columns and 'sentiment_score' in stock_df.columns:
+                csv_results = dict(zip(stock_df['ticker'], stock_df['sentiment_score']))
+                # Filter to only requested tickers
+                for ticker in stock_tickers:
+                    if ticker in csv_results:
+                        results[ticker] = csv_results[ticker]
+                print(f"Using CSV stock sentiment for {len(stock_tickers)} stocks")
+        except Exception as e:
+            print(f"Failed to load stock sentiment CSV: {e}")
+    
+    # Load bond sentiment from CSV
+    if bond_csv.exists():
+        try:
+            import pandas as pd
+            bond_df = pd.read_csv(bond_csv)
+            if 'ticker' in bond_df.columns and 'sentiment_score' in bond_df.columns:
+                csv_results = dict(zip(bond_df['ticker'], bond_df['sentiment_score']))
+                # Filter to only requested tickers
+                for ticker in bond_tickers:
+                    if ticker in csv_results:
+                        results[ticker] = csv_results[ticker]
+                print(f"Using CSV bond sentiment for {len(bond_tickers)} bonds")
+        except Exception as e:
+            print(f"Failed to load bond sentiment CSV: {e}")
+    
+    # Step 3: Default to neutral (50) for any missing
+    for t in stock_tickers + bond_tickers:
+        if t not in results:
+            results[t] = 50.0
+    
+    return results
 
 
 def get_base_path():

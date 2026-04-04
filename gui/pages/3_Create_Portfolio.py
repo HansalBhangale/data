@@ -181,6 +181,7 @@ def _generate_portfolio(user_inputs) -> None:
         risk_score=risk_score,
         capital=user_inputs["capital"],
         use_enhanced=True,
+        use_sentiment=True,
     )
 
     if "error" in portfolio:

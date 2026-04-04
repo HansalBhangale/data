@@ -18,6 +18,7 @@ flowchart TB
     subgraph "Pipeline Layer"
         Pipe[sp500_pipeline]
         BondPipe[Bond Scoring Pipeline]
+        SentPipe[Sentiment Pipeline]
     end
 
     subgraph "ML Models"
@@ -25,10 +26,11 @@ flowchart TB
         TechML[Technical Model<br/>LightGBM]
         RiskML[Risk Tolerance Model<br/>Random Forest/XGBoost]
         BondScorer[Rules-Based Bond Scorer]
+        SentML[FinBERT Sentiment<br/>Local Model]
     end
 
     subgraph "Composite Layer"
-        Comp[Composite Scorer]
+        Comp[Composite Scorer<br/>35% Fund + 55% Tech + 10% Sentiment]
         Port[Portfolio Builder<br/>PyPortfolioOpt]
     end
 
@@ -38,13 +40,16 @@ flowchart TB
 
     SEC --> Pipe
     YF --> Pipe
+    YF --> SentPipe
     Pipe --> FundML
     Pipe --> TechML
     SCF --> RiskML
     BD --> BondPipe
+    SentPipe --> SentML
     BondPipe --> BondScorer
     FundML --> Comp
     TechML --> Comp
+    SentML --> Comp
     RiskML --> Comp
     BondScorer --> Port
     Comp --> Port
@@ -52,12 +57,15 @@ flowchart TB
 
     style Pipe fill:#1a1a2e,color:#fff
     style BondPipe fill:#1a1a2e,color:#fff
+    style SentPipe fill:#1a1a2e,color:#fff
     style FundML fill:#16213e,color:#fff
     style TechML fill:#16213e,color:#fff
     style RiskML fill:#16213e,color:#fff
     style BondScorer fill:#16213e,color:#fff
+    style SentML fill:#16213e,color:#fff
     style Comp fill:#0f3460,color:#fff
     style Port fill:#0f3460,color:#fff
+    style GUI fill:#e94560,color:#fff
     style GUI fill:#e94560,color:#fff
 ```
 
@@ -263,6 +271,92 @@ bond_score = 0.25 * duration_score + 0.25 * credit_score + 0.25 * momentum_score
 
 ---
 
+### 2.5 Sentiment Analysis System (`sentiment`)
+
+```mermaid
+flowchart TB
+    subgraph "Data Sources"
+        YF[Yahoo Finance API]
+        FinBERT[FinBERT Model<br/>Local Cache]
+    end
+
+    subgraph "Sentiment Pipeline"
+        News[Fetch News Headlines]
+        NLP[Run FinBERT Analysis]
+        Aggregate[Aggregate Scores]
+    end
+
+    subgraph "Scoring"
+        Norm[Normalize 0-100 Scale]
+        Weight[Apply 10% Weight]
+    end
+
+    subgraph "Portfolio Integration"
+        Comp[Composite Scorer]
+        Port[Portfolio Builder]
+    end
+
+    YF --> News
+    FinBERT --> NLP
+    News --> NLP
+    NLP --> Aggregate
+    Aggregate --> Norm
+    Norm --> Weight
+    Weight --> Comp
+    Comp --> Port
+```
+
+#### Sentiment Analysis Methodology
+
+The system uses **Yahoo Finance** (free, unlimited) + **FinBERT** (local model) for sentiment analysis:
+
+| Component | Description |
+|-----------|-------------|
+| **News Source** | Yahoo Finance API (free, no rate limits) |
+| **NLP Model** | FinBERT (ProsusAI/finbert) - specialized for financial text |
+| **Analysis** | Real-time headlines analyzed for positive/negative/neutral |
+| **Output** | Sentiment score 0-100 (50 = neutral) |
+
+**Sentiment Flow:**
+1. Fetch latest news for each stock in portfolio via Yahoo Finance
+2. Run FinBERT on each headline
+3. Aggregate all headline sentiments into single score
+4. Normalize to 0-100 scale
+5. Apply 10% weight in composite score calculation
+
+**Composite Score Formula:**
+```
+final_score = 0.35 * fundamental + 0.55 * technical + 0.10 * sentiment
+```
+
+**Fallback Chain (if Yahoo Finance unavailable):**
+1. Yahoo Finance + FinBERT → Primary (free, unlimited)
+2. Marketaux API + FinBERT → Fallback 1 (has limits)
+3. CSV files (pre-computed) → Fallback 2
+4. Neutral (50) → Default fallback
+
+#### Model Cache
+
+The FinBERT model is stored locally in the project folder:
+
+```
+.model_cache/
+└── models--ProsusAI--finbert/
+    ├── blobs/
+    ├── snapshots/
+    └── refs/
+```
+
+**Size:** ~836 MB (downloaded on first run)
+
+**To download the model manually:**
+```python
+from sentiment.sentiment_analyzer import get_finbert_model
+model, tokenizer = get_finbert_model()  # Downloads to .model_cache/
+```
+
+---
+
 ### 3. Unified Portfolio Construction (`composite`)
 
 ```mermaid
@@ -270,13 +364,14 @@ flowchart TB
     subgraph "Inputs"
         FundPred[Fundamental Predictions]
         TechPred[Technical Predictions]
+        SentPred[Sentiment Scores<br/>Yahoo + FinBERT]
         BondScores[Bond Scores]
         RiskScore[Investor Risk Score]
         StockRisk[Stock Risk Scores]
     end
 
     subgraph "Stock Allocation"
-        Blend[Blend 40% Fund + 60% Tech]
+        Blend[Blend 35% Fund + 55% Tech + 10% Sent]
         Bucket[Map to Risk Buckets 1-5]
         Filter[Filter by Bucket]
         Rank[Rank by Composite Score]
@@ -294,11 +389,12 @@ flowchart TB
     end
 
     subgraph "Output"
-        Port[Unified Portfolio<br/>Stocks + Bonds]
+        Port[Unified Portfolio<br/>Stocks + Bonds + Sentiment]
     end
 
     FundPred --> Blend
     TechPred --> Blend
+    SentPred --> Blend
     Blend --> Bucket
     Bucket --> Filter
     StockRisk --> Filter
@@ -445,7 +541,10 @@ python run_technical.py
 # 4. Generate bond scores
 python run_bond_ml.py
 
-# 5. Launch dashboard
+# 5. Download FinBERT model (first time only - ~836MB)
+python -c "from sentiment.sentiment_analyzer import get_finbert_model; get_finbert_model()"
+
+# 6. Launch dashboard
 streamlit run gui/app.py
 ```
 
@@ -456,6 +555,27 @@ If data and models are already generated:
 ```bash
 streamlit run gui/app.py
 ```
+
+### FinBERT Model Download
+
+The first time you run sentiment analysis, the FinBERT model will be automatically downloaded to the project folder:
+
+```
+.model_cache/
+└── models--ProsusAI--finbert/  (~836 MB)
+```
+
+To manually download or verify the model:
+
+```python
+from sentiment.sentiment_analyzer import get_finbert_model
+
+# This will download the model to .model_cache/ if not already present
+model, tokenizer = get_finbert_model()
+print("FinBERT model ready!")
+```
+
+**Note:** The model is stored locally in the project folder for portability. No HuggingFace account required.
 
 ---
 

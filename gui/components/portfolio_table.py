@@ -94,16 +94,28 @@ def render_holdings_table(portfolio: dict):
         df['Type'] = df['type']
         
         # Different columns for equity vs bond
-        equity_mask = df['Type'] == 'Equity'
-        bond_mask = df['Type'] == 'Bond'
-        
         display_data = []
         for _, row in df.iterrows():
+            sentiment = row.get('sentiment_score', 50)
+            
+            # Determine sentiment label and emoji
+            if sentiment > 55:
+                sentiment_emoji = "🟢"
+                sentiment_label = "Positive"
+            elif sentiment < 45:
+                sentiment_emoji = "🔴"
+                sentiment_label = "Negative"
+            else:
+                sentiment_emoji = "⚪"
+                sentiment_label = "Neutral"
+            
             if row['Type'] == 'Equity':
                 display_data.append({
                     'Type': 'Equity',
                     'Ticker': row['ticker'],
                     'Score': f"{row.get('final_score', row.get('composite_score', 0)):.3f}",
+                    'Sentiment': f"{sentiment_emoji} {int(sentiment)}",
+                    'Sentiment Value': sentiment,
                     'Risk': row.get('risk_bucket', '-'),
                     'Weight': f"{row['weight_pct']:.1f}%",
                     'Capital': f"${row['capital_allocated']:,.0f}",
@@ -113,6 +125,8 @@ def render_holdings_table(portfolio: dict):
                     'Type': 'Bond',
                     'Ticker': row['ticker'],
                     'Score': f"{row.get('score', row.get('composite_score', 0)):.2f}",
+                    'Sentiment': f"{sentiment_emoji} {int(sentiment)}",
+                    'Sentiment Value': sentiment,
                     'Risk': '-',
                     'Weight': f"{row['weight_pct']:.1f}%",
                     'Capital': f"${row['capital_allocated']:,.0f}",
@@ -120,15 +134,34 @@ def render_holdings_table(portfolio: dict):
         
         display_df = pd.DataFrame(display_data)
         
-        # Display with styling
+        # Calculate average sentiment
+        avg_sentiment = display_df['Sentiment Value'].mean()
+        
+        # Display sentiment summary
+        col1, col2, col3 = st.columns(3)
+        positive_count = (display_df['Sentiment Value'] > 55).sum()
+        negative_count = (display_df['Sentiment Value'] < 45).sum()
+        neutral_count = len(display_df) - positive_count - negative_count
+        
+        with col1:
+            st.metric("Avg Sentiment", f"{avg_sentiment:.0f}/100")
+        with col2:
+            st.metric("Positive", f"🟢 {positive_count}")
+        with col3:
+            st.metric("Negative", f"🔴 {negative_count}")
+        
+        st.divider()
+        
+        # Display with styling (hide Sentiment Value column)
         st.dataframe(
-            display_df,
+            display_df.drop(columns=['Sentiment Value']),
             use_container_width=True,
             hide_index=True,
             column_config={
                 'Type': st.column_config.TextColumn('Type', width='small'),
                 'Ticker': st.column_config.TextColumn('Ticker', width='small'),
                 'Score': st.column_config.TextColumn('Score'),
+                'Sentiment': st.column_config.TextColumn('Sentiment'),
                 'Risk': st.column_config.TextColumn('Bucket'),
                 'Weight': st.column_config.TextColumn('Weight %'),
                 'Capital': st.column_config.TextColumn('Capital'),
