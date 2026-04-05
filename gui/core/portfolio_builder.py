@@ -348,6 +348,9 @@ def build_investor_portfolio(
         'n_stocks': len(stock_allocations),
         'n_bonds': len(bond_allocations),
         'allocations': all_allocations,
+        'n_sectors': stock_portfolio.get('n_sectors', 0),
+        'sector_allocation': stock_portfolio.get('sector_allocation', {}),
+        'max_sector_weight': stock_portfolio.get('max_sector_weight', 25),
     }
 
 

@@ -16,6 +16,61 @@ import warnings
 
 warnings.filterwarnings('ignore')
 
+MAX_SECTOR_WEIGHT = 0.25
+MAX_STOCK_WEIGHT = 0.20
+MIN_HOLDINGS = 10
+
+
+def get_sector_mapping(fundamental_df: pd.DataFrame) -> Dict[str, str]:
+    """Map ticker → GICS sector from latest fundamental data."""
+    if fundamental_df is None or len(fundamental_df) == 0:
+        return {}
+    latest = fundamental_df.sort_values('quarter_end').groupby('ticker').last().reset_index()
+    sector_map = {}
+    for _, row in latest.iterrows():
+        ticker = row['ticker']
+        sector = row.get('sector') or row.get('gics_sector')
+        if pd.notna(sector) and str(sector).strip():
+            sector_map[ticker] = str(sector).strip()
+    return sector_map
+
+
+def _apply_sector_constraints(
+    weights: np.ndarray,
+    tickers: List[str],
+    sector_map: Dict[str, str],
+    max_sector_weight: float = MAX_SECTOR_WEIGHT,
+) -> np.ndarray:
+    """Apply sector constraints via iterative rebalancing."""
+    weights = weights.copy()
+    tickers = list(tickers)
+    
+    for _ in range(20):
+        sector_weights = {}
+        for i, t in enumerate(tickers):
+            sector = sector_map.get(t, 'Unknown')
+            sector_weights[sector] = sector_weights.get(sector, 0.0) + weights[i]
+        
+        excess_sectors = {s: w - max_sector_weight for s, w in sector_weights.items() if w > max_sector_weight}
+        if not excess_sectors:
+            break
+        
+        for s, excess in excess_sectors.items():
+            sector_tickers = [tickers[i] for i in range(len(tickers)) if sector_map.get(tickers[i]) == s]
+            if not sector_tickers:
+                continue
+            sector_indices = [tickers.index(t) for t in sector_tickers]
+            sector_sum = sum(weights[i] for i in sector_indices)
+            if sector_sum > 0:
+                for idx in sector_indices:
+                    weights[idx] = weights[idx] * (max_sector_weight / sector_sum)
+        
+        total = weights.sum()
+        if total > 0:
+            weights = weights / total
+    
+    return weights
+
 
 def _fetch_historical_prices(tickers: List[str], period: str = '1y') -> pd.DataFrame:
     """Fetch historical daily closing prices for a list of tickers."""
@@ -163,17 +218,17 @@ def calculate_bucket_weights(risk_score: float) -> Dict:
 
 INVESTOR_PARAMS_ENHANCED = {
     (0, 20):   {'category': 'Ultra Conservative', 'base_equity': 0.95, 'cash_reserve': 0.05,
-                'quality_weight': 0.20, 'momentum_weight': 0.30, 'max_weight_per_stock': 0.15, 'min_holdings': 10},
+                'quality_weight': 0.20, 'momentum_weight': 0.30},
     (21, 35):  {'category': 'Conservative', 'base_equity': 0.97, 'cash_reserve': 0.03,
-                'quality_weight': 0.15, 'momentum_weight': 0.35, 'max_weight_per_stock': 0.15, 'min_holdings': 10},
+                'quality_weight': 0.15, 'momentum_weight': 0.35},
     (36, 50):  {'category': 'Moderate', 'base_equity': 0.98, 'cash_reserve': 0.02,
-                'quality_weight': 0.15, 'momentum_weight': 0.40, 'max_weight_per_stock': 0.18, 'min_holdings': 10},
+                'quality_weight': 0.15, 'momentum_weight': 0.40},
     (51, 70):  {'category': 'Growth', 'base_equity': 0.99, 'cash_reserve': 0.01,
-                'quality_weight': 0.10, 'momentum_weight': 0.45, 'max_weight_per_stock': 0.20, 'min_holdings': 10},
+                'quality_weight': 0.10, 'momentum_weight': 0.45},
     (71, 85):  {'category': 'Aggressive', 'base_equity': 0.99, 'cash_reserve': 0.01,
-                'quality_weight': 0.05, 'momentum_weight': 0.50, 'max_weight_per_stock': 0.22, 'min_holdings': 10},
+                'quality_weight': 0.05, 'momentum_weight': 0.50},
     (86, 100): {'category': 'Ultra Aggressive', 'base_equity': 0.99, 'cash_reserve': 0.01,
-                'quality_weight': 0.05, 'momentum_weight': 0.55, 'max_weight_per_stock': 0.25, 'min_holdings': 10},
+                'quality_weight': 0.05, 'momentum_weight': 0.55},
 }
 
 
@@ -188,13 +243,16 @@ def get_enhanced_params(risk_score: float) -> Dict:
 def _optimize_weights_enhanced(
     portfolio_stocks: pd.DataFrame,
     min_weight: float = 0.02,
-    max_weight: float = 0.20,
+    max_weight: float = MAX_STOCK_WEIGHT,
     risk_free_rate: float = 0.04,
+    sector_map: Dict[str, str] = None,
+    max_sector_weight: float = MAX_SECTOR_WEIGHT,
 ) -> Optional[np.ndarray]:
     """
     Optimize portfolio weights using PyPortfolioOpt Max Sharpe.
     
     Uses final_score * 0.15 as expected annual returns to beat S&P (~10%).
+    Applies sector constraints to ensure no single sector exceeds max_sector_weight.
     """
     try:
         import os
@@ -205,6 +263,7 @@ def _optimize_weights_enhanced(
             warnings.simplefilter('ignore')
             from pypfopt import EfficientFrontier
             from pypfopt import risk_models
+            import cvxpy as cp
 
         tickers = portfolio_stocks['ticker'].tolist()
         final_scores = portfolio_stocks['final_score'].values
@@ -231,6 +290,27 @@ def _optimize_weights_enhanced(
             return None
 
         ef = EfficientFrontier(mu, S, weight_bounds=(min_weight, max_weight))
+        
+        if sector_map:
+            unique_sectors = {}
+            for t in available:
+                sector = sector_map.get(t, 'Unknown')
+                if sector not in unique_sectors:
+                    unique_sectors[sector] = []
+                unique_sectors[sector].append(t)
+            
+            for sector, sector_tickers in unique_sectors.items():
+                if len(sector_tickers) > 1:
+                    sector_indices = [available.index(t) for t in sector_tickers]
+                    
+                    def make_sector_constraint(indices):
+                        return lambda w: sum(w[i] for i in indices) <= max_sector_weight
+                    
+                    try:
+                        ef.add_constraint(make_sector_constraint(sector_indices))
+                    except:
+                        pass
+        
         ef.max_sharpe(risk_free_rate=risk_free_rate)
         weights = ef.clean_weights()
 
@@ -243,6 +323,9 @@ def _optimize_weights_enhanced(
 
         perf = ef.portfolio_performance(risk_free_rate)
         print(f"      PyPortfolioOpt: Return={perf[0]:.1%}, Vol={perf[1]:.1%}, Sharpe={perf[2]:.2f}")
+
+        if sector_map:
+            weight_array = _apply_sector_constraints(weight_array, tickers, sector_map, max_sector_weight)
 
         return weight_array
 
@@ -258,9 +341,11 @@ def _weight_by_scores_enhanced(
     portfolio_stocks: pd.DataFrame,
     gamma: float = 1.5,
     min_weight: float = 0.02,
-    max_weight: float = 0.20,
+    max_weight: float = MAX_STOCK_WEIGHT,
+    sector_map: Dict[str, str] = None,
+    max_sector_weight: float = MAX_SECTOR_WEIGHT,
 ) -> np.ndarray:
-    """Weight stocks by exponential score weighting."""
+    """Weight stocks by exponential score weighting with sector constraints."""
     scores = portfolio_stocks['final_score'].values
     raw_weights = np.power(scores, gamma)
     weights = raw_weights / raw_weights.sum()
@@ -284,7 +369,57 @@ def _weight_by_scores_enhanced(
     if weights.sum() > 0:
         weights /= weights.sum()
 
+    if sector_map:
+        weights = _apply_sector_constraints(weights, portfolio_stocks['ticker'].tolist(), sector_map, max_sector_weight)
+
     return weights
+
+
+def _select_diversified_stocks(
+    eligible: pd.DataFrame,
+    allowed_buckets: List[int],
+    bucket_weights: List[float],
+    top_n: int = 25,
+    max_stocks: int = MIN_HOLDINGS,
+    max_per_sector: int = 2,
+) -> pd.DataFrame:
+    """Select stocks from buckets while maintaining sector diversity."""
+    selected_stocks = []
+    sector_counts = {}
+    
+    for bucket, weight in zip(allowed_buckets, bucket_weights):
+        bucket_stocks = eligible[eligible['risk_bucket'] == bucket].copy()
+        bucket_stocks = bucket_stocks.sort_values('final_score', ascending=False)
+        n_from_bucket = max(3, int(top_n * weight))
+        bucket_stocks = bucket_stocks.head(n_from_bucket * 2)
+        bucket_stocks['bucket_weight'] = weight
+        
+        selected_from_bucket = []
+        for _, row in bucket_stocks.iterrows():
+            sector = row.get('sector', 'Unknown')
+            if sector_counts.get(sector, 0) < max_per_sector:
+                selected_from_bucket.append(row)
+                sector_counts[sector] = sector_counts.get(sector, 0) + 1
+                if len(selected_from_bucket) >= n_from_bucket:
+                    break
+        
+        if selected_from_bucket:
+            selected_stocks.extend(selected_from_bucket)
+    
+    if not selected_stocks:
+        for bucket, weight in zip(allowed_buckets, bucket_weights):
+            bucket_stocks = eligible[eligible['risk_bucket'] == bucket].copy()
+            bucket_stocks = bucket_stocks.sort_values('final_score', ascending=False)
+            n_from_bucket = max(3, int(top_n * weight))
+            bucket_stocks = bucket_stocks.head(n_from_bucket)
+            bucket_stocks['bucket_weight'] = weight
+            selected_stocks.extend(bucket_stocks.to_dict('records'))
+    
+    portfolio_stocks = pd.DataFrame(selected_stocks)
+    portfolio_stocks = portfolio_stocks.sort_values('final_score', ascending=False).head(max_stocks * 2)
+    portfolio_stocks = portfolio_stocks.drop_duplicates(subset='ticker')
+    
+    return portfolio_stocks
 
 
 def build_portfolio_enhanced(
@@ -296,7 +431,7 @@ def build_portfolio_enhanced(
     daily_prices: pd.DataFrame = None,
     spy_daily: pd.DataFrame = None,
     top_n: int = 25,
-    max_stocks: int = 10,
+    max_stocks: int = MIN_HOLDINGS,
     use_optimization: bool = True,
 ) -> Dict:
     """
@@ -307,9 +442,12 @@ def build_portfolio_enhanced(
     2. Quality confidence adjustment - reduces weight when data missing
     3. PyPortfolioOpt optimization for optimal Sharpe
     4. Proper risk controls per profile
+    5. Sector diversification - no single sector exceeds 25%
     """
     params = get_enhanced_params(investor_risk_score)
     bucket_config = calculate_bucket_weights(investor_risk_score)
+
+    sector_map = get_sector_mapping(fundamental_df) if fundamental_df is not None else {}
 
     momentum_scores = {}
     if daily_prices is not None:
@@ -322,6 +460,11 @@ def build_portfolio_enhanced(
         on='ticker',
         how='inner'
     )
+
+    if sector_map:
+        merged['sector'] = merged['ticker'].map(sector_map).fillna('Unknown')
+    else:
+        merged['sector'] = 'Unknown'
 
     if momentum_scores:
         merged['momentum_score'] = merged['ticker'].map(momentum_scores).fillna(0.5)
@@ -373,38 +516,30 @@ def build_portfolio_enhanced(
         risk_adj_factor * (eligible['risk_norm'] - 0.5)
     )
 
-    selected_stocks = []
-    for bucket, weight in zip(allowed_buckets, bucket_weights):
-        bucket_stocks = eligible[eligible['risk_bucket'] == bucket].copy()
-        bucket_stocks = bucket_stocks.sort_values('final_score', ascending=False)
-        n_from_bucket = max(3, int(top_n * weight))
-        bucket_stocks = bucket_stocks.head(n_from_bucket)
-        bucket_stocks['bucket_weight'] = weight
-        selected_stocks.append(bucket_stocks)
+    eligible = _select_diversified_stocks(eligible, allowed_buckets, bucket_weights, top_n, max_stocks)
 
-    portfolio_stocks = pd.concat(selected_stocks, ignore_index=True)
+    portfolio_stocks = eligible.head(max_stocks).reset_index(drop=True)
 
-    # Cap to max_stocks (default 10)
-    portfolio_stocks = portfolio_stocks.sort_values('final_score', ascending=False).head(max_stocks).reset_index(drop=True)
-
-    if len(portfolio_stocks) < params['min_holdings']:
+    if len(portfolio_stocks) < MIN_HOLDINGS:
         remaining = eligible[~eligible['ticker'].isin(portfolio_stocks['ticker'])]
         remaining = remaining.sort_values('final_score', ascending=False)
-        additional = remaining.head(params['min_holdings'] - len(portfolio_stocks))
+        additional = remaining.head(MIN_HOLDINGS - len(portfolio_stocks))
         additional['bucket_weight'] = 0.1
         portfolio_stocks = pd.concat([portfolio_stocks, additional], ignore_index=True)
 
     portfolio_stocks = portfolio_stocks.reset_index(drop=True)
 
-    max_weight = params['max_weight_per_stock']
+    max_weight = MAX_STOCK_WEIGHT
     min_weight = 0.02
 
-    if use_optimization:
+    if use_optimization and sector_map:
         weights = _optimize_weights_enhanced(
             portfolio_stocks,
             min_weight=min_weight,
             max_weight=max_weight,
             risk_free_rate=0.04,
+            sector_map=sector_map,
+            max_sector_weight=MAX_SECTOR_WEIGHT,
         )
     else:
         weights = None
@@ -415,6 +550,8 @@ def build_portfolio_enhanced(
             gamma=1.5,
             min_weight=min_weight,
             max_weight=max_weight,
+            sector_map=sector_map if sector_map else None,
+            max_sector_weight=MAX_SECTOR_WEIGHT,
         )
 
     mask = weights > 1e-6
@@ -431,11 +568,14 @@ def build_portfolio_enhanced(
     cash_amt = capital * cash_allocation
 
     allocations = []
+    portfolio_sectors = {}
     for i, (_, row) in enumerate(portfolio_stocks.iterrows()):
+        sector = row.get('sector', 'Unknown')
         sw = weights[i] * equity_allocation
         sa = capital * sw
         allocations.append({
             'ticker': row['ticker'],
+            'sector': sector,
             'composite_score': round(float(row['composite_score']), 4),
             'momentum_score': round(float(row['momentum_score']), 4),
             'quality_score': round(float(row['quality_score']), 4),
@@ -446,6 +586,7 @@ def build_portfolio_enhanced(
             'weight_pct': round(sw * 100, 2),
             'capital_allocated': round(sa, 2),
         })
+        portfolio_sectors[sector] = portfolio_sectors.get(sector, 0.0) + sw * 100
 
     allocations.sort(key=lambda x: x['weight_pct'], reverse=True)
 
@@ -457,10 +598,13 @@ def build_portfolio_enhanced(
         'cash_weight': round(cash_allocation * 100, 2),
         'cash_amount': round(cash_amt, 2),
         'n_holdings': len(allocations),
+        'n_sectors': len(portfolio_sectors),
+        'sector_allocation': {s: round(w, 2) for s, w in portfolio_sectors.items()},
         'buckets': allowed_buckets,
         'bucket_weights': bucket_weights,
         'max_weight_per_stock': max_weight * 100,
-        'min_holdings': params['min_holdings'],
+        'min_holdings': MIN_HOLDINGS,
+        'max_sector_weight': MAX_SECTOR_WEIGHT * 100,
         'composite_weight': round(float(composite_weight.mean()), 3),
         'momentum_weight': round(float(momentum_weight.mean()), 3),
         'quality_weight': round(float(quality_weight.mean()), 3),
@@ -487,15 +631,19 @@ def print_enhanced_report(portfolio: Dict, capital: float = 100_000):
     print(f"\n  Capital: ${capital:,.0f}")
     print(f"  Equity: {portfolio['equity_weight']:.1f}% (${portfolio['equity_amount']:,.0f})")
     print(f"  Cash: {portfolio['cash_weight']:.1f}% (${portfolio['cash_amount']:,.0f})")
-    print(f"  Holdings: {portfolio['n_holdings']} (min: {portfolio['min_holdings']})")
-    print(f"  Max Weight/Stock: {portfolio['max_weight_per_stock']:.0f}%")
+    print(f"  Holdings: {portfolio['n_holdings']} | Sectors: {portfolio.get('n_sectors', 'N/A')}")
+    print(f"  Max Weight/Stock: {portfolio['max_weight_per_stock']:.0f}% | Max Sector: {portfolio.get('max_sector_weight', 25):.0f}%")
+
+    if 'sector_allocation' in portfolio:
+        print(f"\n  Sector Allocation:")
+        for sector, weight in sorted(portfolio['sector_allocation'].items(), key=lambda x: -x[1]):
+            print(f"    {sector}: {weight:.1f}%")
 
     if portfolio['allocations']:
-        print(f"\n  {'#':>2} {'Ticker':<8} {'Final':>6} {'Comp':>6} {'Mom':>6} {'Qual':>6} {'Conf':>6} {'Risk':>6} {'Bkt':>4} {'Wt%':>6}")
-        print("  " + "-" * 85)
+        print(f"\n  {'#':>2} {'Ticker':<8} {'Sector':<35} {'Final':>6} {'Risk':>6} {'Bkt':>4} {'Wt%':>6}")
+        print("  " + "-" * 95)
         for i, a in enumerate(portfolio['allocations'], 1):
-            print(f"  {i:>2} {a['ticker']:<8} {a['final_score']:>6.3f} {a['composite_score']:>6.3f} "
-                  f"{a['momentum_score']:>6.3f} {a['quality_score']:>6.3f} {a['quality_confidence']:>6.2f} "
-                  f"{a['stock_risk_score']:>6.1f} {a['risk_bucket']:>4} {a['weight_pct']:>5.1f}%")
+            sector = a.get('sector', 'Unknown')[:33]
+            print(f"  {i:>2} {a['ticker']:<8} {sector:<35} {a['final_score']:>6.3f} {a['stock_risk_score']:>6.1f} {a['risk_bucket']:>4} {a['weight_pct']:>5.1f}%")
 
     print("\n" + "=" * 95)

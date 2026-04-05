@@ -57,6 +57,7 @@ from gui.components import (
     render_risk_gauge,
     render_risk_metrics_row,
     render_section_header,
+    render_sector_allocation,
 )
 from gui.core import (
     build_investor_portfolio,
@@ -236,6 +237,11 @@ def _render_allocation_section(portfolio) -> None:
         render_holdings_table(portfolio)
 
     st.markdown("<br>", unsafe_allow_html=True)
+    
+    if portfolio.get('sector_allocation'):
+        render_sector_allocation(portfolio)
+        st.markdown("<br>", unsafe_allow_html=True)
+    
     render_portfolio_summary(portfolio)
 
     st.markdown('<div class="quantum-divider"></div>', unsafe_allow_html=True)

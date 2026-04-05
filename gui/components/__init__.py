@@ -11,6 +11,7 @@ from .portfolio_table import (
     render_holdings_table,
     render_portfolio_summary,
     render_section_header,
+    render_sector_allocation,
 )
 from .backtest_chart import render_backtest_chart, render_performance_metrics
 from .metrics_table import (
@@ -29,6 +30,7 @@ __all__ = [
     'render_holdings_table',
     'render_portfolio_summary',
     'render_section_header',
+    'render_sector_allocation',
     'render_backtest_chart',
     'render_performance_metrics',
     'render_beat_spy_badge',

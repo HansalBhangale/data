@@ -47,22 +47,23 @@ def render_holdings_pie(portfolio: dict):
         marker_colors=colors[:len(labels)],
         textinfo='label+percent',
         textposition='outside',
-        textfont={'family': 'Outfit', 'size': 11, 'color': '#94A3B8'},
+        textfont={'family': 'Outfit', 'size': 10, 'color': '#94A3B8'},
+        outsidetextfont={'family': 'Outfit', 'size': 10, 'color': '#94A3B8'},
     )])
 
     fig.update_layout(
-        showlegend=True,
-        legend=dict(
-            orientation="h",
-            yanchor="bottom",
-            y=-0.1,
-            xanchor="center",
-            x=0.5,
-            font={'family': 'Outfit', 'size': 11, 'color': '#94A3B8'}
-        ),
-        height=350,
+        showlegend=False,
+        height=300,
         paper_bgcolor='rgba(0,0,0,0)',
         margin=dict(l=10, r=10, t=30, b=10),
+        annotations=[
+            dict(
+                text='<b>Holdings</b>',
+                x=0.5, y=0.5,
+                font=dict(family='Outfit', size=12, color='#94A3B8'),
+                showarrow=False
+            )
+        ]
     )
 
     st.plotly_chart(fig, use_container_width=True)
@@ -207,11 +208,9 @@ def render_portfolio_summary(portfolio: dict):
     if not portfolio:
         return
 
-    # Check if this is a unified portfolio (has bonds)
     has_bonds = 'bond_weight' in portfolio and portfolio.get('bond_weight', 0) > 0
     
     if has_bonds:
-        # Unified portfolio with stocks and bonds
         col1, col2, col3, col4, col5 = st.columns(5)
 
         with col1:
@@ -244,7 +243,6 @@ def render_portfolio_summary(portfolio: dict):
                 value=f"{portfolio.get('bond_weight', 0):.0f}%"
             )
     else:
-        # Original stock-only format
         col1, col2, col3, col4 = st.columns(4)
 
         with col1:
@@ -271,6 +269,75 @@ def render_portfolio_summary(portfolio: dict):
                 label="Buckets",
                 value=bucket_str
             )
+
+
+def render_sector_allocation(portfolio: dict):
+    """
+    Render sector allocation pie chart for diversified portfolio.
+    
+    Parameters
+    ----------
+    portfolio : dict
+        Portfolio dictionary with 'sector_allocation' and 'n_sectors' keys
+    """
+    if not portfolio:
+        return
+    
+    sector_alloc = portfolio.get('sector_allocation', {})
+    n_sectors = portfolio.get('n_sectors', 0)
+    
+    if not sector_alloc:
+        st.info("No sector data available")
+        return
+    
+    st.markdown("#### Sector Diversification")
+    
+    col_pie, col_metrics = st.columns([2, 1])
+    
+    with col_pie:
+        labels = list(sector_alloc.keys())
+        values = list(sector_alloc.values())
+        
+        colors = [
+            '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#6366F1',
+            '#06B6D4', '#EC4899', '#14B8A6', '#F97316', '#8B5CF6',
+            '#64748B', '#84CC16', '#22D3EE', '#A855F7', '#EAB308'
+        ]
+        
+        fig = go.Figure(data=[go.Pie(
+            labels=labels,
+            values=values,
+            hole=0.5,
+            marker_colors=colors[:len(labels)],
+            textinfo='label+percent',
+            textposition='outside',
+            textfont={'family': 'Outfit', 'size': 10, 'color': '#94A3B8'},
+            outsidetextfont={'family': 'Outfit', 'size': 10, 'color': '#94A3B8'},
+            hovertemplate='%{label}<br>%{percent}<extra></extra>',
+        )])
+        
+        fig.update_layout(
+            showlegend=False,
+            height=250,
+            paper_bgcolor='rgba(0,0,0,0)',
+            margin=dict(l=60, r=20, t=20, b=20),
+            annotations=[
+                dict(
+                    text='<b>Sectors</b>',
+                    x=0.5, y=0.5,
+                    font=dict(family='Outfit', size=12, color='#94A3B8'),
+                    showarrow=False
+                )
+            ]
+        )
+        
+        st.plotly_chart(fig, use_container_width=True)
+    
+    with col_metrics:
+        st.metric("Total Sectors", f"{n_sectors}")
+        max_sector = portfolio.get('max_sector_weight', 25)
+        st.metric("Max Sector Weight", f"{max_sector:.0f}%")
+        st.metric("Stocks", f"{portfolio.get('n_stocks', portfolio.get('n_holdings', 0))}")
 
 
 def render_section_header(title: str):
