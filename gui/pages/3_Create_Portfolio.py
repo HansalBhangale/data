@@ -51,6 +51,7 @@ from gui.components import (
     render_holdings_pie,
     render_holdings_table,
     render_metrics_comparison,
+    render_monte_carlo_chart,
     render_performance_metrics,
     render_portfolio_summary,
     render_questionnaire,
@@ -58,6 +59,7 @@ from gui.components import (
     render_risk_metrics_row,
     render_section_header,
     render_sector_allocation,
+    render_stress_scenario_details,
 )
 from gui.core import (
     build_investor_portfolio,
@@ -68,6 +70,7 @@ from gui.core import (
     load_daily_prices,
     load_risk_model,
     predict_risk_score,
+    run_monte_carlo,
 )
 from gui.database import save_portfolio
 from gui.styles import get_custom_css
@@ -247,7 +250,7 @@ def _render_allocation_section(portfolio) -> None:
     st.markdown('<div class="quantum-divider"></div>', unsafe_allow_html=True)
 
 
-def _render_performance_section(backtest) -> None:
+def _render_performance_section(backtest, portfolio, capital) -> None:
     """Render the Performance vs S&P 500 section."""
     render_section_header("PERFORMANCE vs S&P 500")
 
@@ -257,6 +260,59 @@ def _render_performance_section(backtest) -> None:
         render_performance_metrics(backtest)
         st.markdown("<br>", unsafe_allow_html=True)
         render_metrics_comparison(backtest)
+        
+        # ── Monte Carlo Projections ───────────────────────────────────────
+        st.markdown("<br>", unsafe_allow_html=True)
+        
+        annual_return = backtest.get('annual_return', 0.10)
+        annual_vol = backtest.get('annual_volatility', 0.20)
+        spy_return = backtest.get('spy_annual_return', 0.10)
+        spy_vol = backtest.get('annual_volatility', 0.20) * 1.2
+        
+        # Get backtest returns for correlation calculation
+        port_cumulative = backtest.get('cumulative_portfolio')
+        spy_cumulative = backtest.get('cumulative_spy')
+        
+        portfolio_returns = None
+        spy_returns_arr = None
+        
+        if port_cumulative is not None and spy_cumulative is not None:
+            # Calculate returns from cumulative data
+            port_returns = port_cumulative.pct_change().dropna().values
+            spy_returns_arr = spy_cumulative.pct_change().dropna().values
+        
+        # Calculate backtest months from data
+        n_periods = backtest.get('n_periods', 252)
+        n_months = min(n_periods // 21, 120)  # Convert trading days to months, cap at 120
+        
+        # Default to conservative tier for compliance
+        mc_result = run_monte_carlo(
+            initial_capital=capital,
+            annual_return=annual_return,
+            annual_vol=annual_vol,
+            spy_return=spy_return,
+            spy_vol=spy_vol,
+            n_simulations=10000,
+            time_horizons=[1, 3, 5, 10],
+            n_months=n_months,
+            correlation=0.5,  # Will be calculated from data if available
+            tier='conservative',  # Default to conservative
+            portfolio_returns=portfolio_returns,
+            spy_returns=spy_returns_arr
+        )
+        
+        render_section_header("FUTURE PROJECTIONS (MONTE CARLO)")
+        
+        backtest_data = None
+        if backtest.get('cumulative_portfolio') is not None:
+            backtest_data = {
+                'cumulative': backtest['cumulative_portfolio'],
+            }
+        
+        render_monte_carlo_chart(mc_result, backtest_data=backtest_data)
+        
+        with st.expander("📉 Stress Scenario Details"):
+            render_stress_scenario_details(mc_result)
     else:
         st.warning(
             "⚠️ Backtest data not available. "
@@ -384,7 +440,7 @@ def main() -> None:
 
         _render_risk_section(risk_score, category, equity_pct, buckets)
         _render_allocation_section(portfolio)
-        _render_performance_section(backtest)
+        _render_performance_section(backtest, portfolio, user_inputs["capital"])
 
         # ── 9 · Save button ───────────────────────────────────────────────
         _render_save_button(

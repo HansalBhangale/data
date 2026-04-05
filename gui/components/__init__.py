@@ -19,6 +19,7 @@ from .metrics_table import (
     render_metrics_comparison,
     render_max_drawdown,
 )
+from .monte_carlo_chart import render_monte_carlo_chart, render_stress_scenario_details
 
 __all__ = [
     'render_header',
@@ -36,4 +37,6 @@ __all__ = [
     'render_beat_spy_badge',
     'render_metrics_comparison',
     'render_max_drawdown',
+    'render_monte_carlo_chart',
+    'render_stress_scenario_details',
 ]

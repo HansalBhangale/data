@@ -42,6 +42,12 @@ from .rebalance import (
     regenerate_target_from_buckets,
 )
 
+from .monte_carlo import (
+    run_monte_carlo,
+    get_projection_summary,
+    calculate_beat_spy_probability,
+)
+
 __all__ = [
     # Mappings
     'map_age_to_features',
@@ -73,4 +79,8 @@ __all__ = [
     'calculate_rebalance_actions',
     'check_rebalance_needed',
     'regenerate_target_from_buckets',
+    # Monte Carlo
+    'run_monte_carlo',
+    'get_projection_summary',
+    'calculate_beat_spy_probability',
 ]
