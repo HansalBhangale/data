@@ -400,15 +400,28 @@ def _render_risk_metrics(mc_result: Dict):
             beat_prob_conservative = mc_result.get('beat_spy_probability_conservative', {}).get(10, 0.5)
             beat_prob_historical = mc_result.get('beat_spy_probability', {}).get(10, 0.5)
             correlation = mc_result.get('params', {}).get('correlation', 0.5)
+            spy_backtest = mc_result.get('params', {}).get('spy_backtest_return', 0.10)
+            
+            # Show "Unfavorable" when probability is very low
+            display_conservative = f"{beat_prob_conservative*100:.0f}%" if beat_prob_conservative >= 0.05 else "Unfavorable"
             
             # Show both beat probabilities
             st.metric(
-                "Beat S&P (Conservative)",
-                f"{beat_prob_conservative*100:.0f}%",
+                "Beat S&P (Symmetric)",
+                display_conservative,
                 f"Historical: {beat_prob_historical*100:.0f}%",
                 delta_color="normal"
             )
-            st.caption(f"Conservative: symmetric methodology | Historical: 10% baseline | Corr: {correlation:.2f}")
+            
+            # Build tooltip with context
+            tooltip_parts = [
+                "Symmetric: same shrinkage applied to S&P",
+                f"Historical: fixed 10% baseline",
+                f"Correlation: {correlation:.2f}"
+            ]
+            if beat_prob_conservative < 0.05:
+                tooltip_parts.append(f"S&P backtest ({spy_backtest*100:.0f}%) outperformed portfolio")
+            st.caption(" | ".join(tooltip_parts))
 
 
 def _render_projection_metrics(mc_result: Dict, scenario: str):
@@ -430,13 +443,17 @@ def _render_projection_metrics(mc_result: Dict, scenario: str):
         beat_prob_historical = mc_result.get('beat_spy_probability', {}).get(h, 0.5)
         beat_prob_conservative = mc_result.get('beat_spy_probability_conservative', {}).get(h, 0.5)
 
+        # Show "Unfavorable" when probability is very low
+        sym_display = f"{beat_prob_conservative*100:.0f}%" if beat_prob_conservative >= 0.05 else "< 5%"
+        hist_display = f"{beat_prob_historical*100:.0f}%"
+
         data.append({
             'Horizon': f"+{h}yr",
             'Portfolio (Median)': f"${actual.get('p50', 0):,.0f}",
             'Range (10th-90th)': f"${actual.get('p10', 0):,.0f} - ${actual.get('p90', 0):,.0f}",
             'S&P 500 (Median)': f"${spy.get('p50', 0):,.0f}",
-            'Beat S&P (Conservative)': f"{beat_prob_conservative:.0%}",
-            'Beat S&P (Historical)': f"{beat_prob_historical:.0%}",
+            'Beat S&P (Symmetric)': sym_display,
+            'Beat S&P (Historical)': hist_display,
         })
 
     df = pd.DataFrame(data)
@@ -450,15 +467,13 @@ def _render_projection_metrics(mc_result: Dict, scenario: str):
             'Portfolio (Median)': st.column_config.TextColumn('Portfolio', width='medium'),
             'Range (10th-90th)': st.column_config.TextColumn('Range', width='medium'),
             'S&P 500 (Median)': st.column_config.TextColumn('S&P 500', width='medium'),
-            'Beat S&P (Conservative)': st.column_config.ProgressColumn(
-                'Beat S&P (Conservative)', format='%.0f%%', min_value=0, max_value=100
-            ),
+            'Beat S&P (Symmetric)': st.column_config.TextColumn('Symmetric', width='small'),
             'Beat S&P (Historical)': st.column_config.TextColumn('Historical', width='small'),
         }
     )
 
     st.caption(
-        "Beat S&P (Conservative): Uses same shrinkage methodology for both portfolio and S&P. "
+        "Beat S&P (Symmetric): Same shrinkage applied to both portfolio and S&P. Shows '< 5%' when S&P backtest outperformed. "
         "Beat S&P (Historical): Uses 10% long-run S&P average as benchmark."
     )
 

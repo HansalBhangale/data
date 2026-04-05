@@ -185,10 +185,10 @@ STRESS_SCENARIOS = {
     'dot_com': {
         'name': 'Dot-com Crash (2000-2002)',
         'crash_return': -0.49,
-        'recovery_return': -0.02,  # Continued decline in subsequent years
+        'recovery_return': 0.06,  # 6% annual recovery post-crash
         'crash_vol': 0.35,
         'recovery_vol': 0.20,
-        'description': '49% crash, followed by 2 more years of decline'
+        'description': '49% crash in year 1, followed by gradual recovery'
     },
     'inflation_2022': {
         'name': '2022 Inflation Crisis',

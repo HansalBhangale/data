@@ -293,7 +293,7 @@ def _render_performance_section(backtest, portfolio, capital) -> None:
             spy_return=spy_return,
             spy_vol=spy_vol,
             n_simulations=10000,
-            time_horizons=[1, 3, 5, 10],
+            time_horizons=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
             n_months=n_months,
             correlation=0.5,  # Will be calculated from data if available
             tier='conservative',  # Default to conservative
