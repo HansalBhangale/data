@@ -351,6 +351,8 @@ def build_investor_portfolio(
         'n_sectors': stock_portfolio.get('n_sectors', 0),
         'sector_allocation': stock_portfolio.get('sector_allocation', {}),
         'max_sector_weight': stock_portfolio.get('max_sector_weight', 25),
+        'buckets': stock_portfolio.get('buckets', []),
+        'bucket_weights': stock_portfolio.get('bucket_weights', []),
     }
 
 

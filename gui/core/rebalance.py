@@ -173,8 +173,35 @@ def regenerate_target_from_buckets(
     """
     COOLDOWN_DAYS = 90
     
-    # NEW PORTFOLIO (< 90 days): Keep ALL current holdings with equal weight
+    # NEW PORTFOLIO (< 90 days): Keep current holdings - use score-based weights if available
     if portfolio_age_days < COOLDOWN_DAYS and current_holdings:
+        # Try to get score-based weights
+        if composite_df is None or composite_df.empty:
+            try:
+                composite_df = pd.read_csv('output_composite/composite_scores.csv')
+            except:
+                composite_df = None
+        
+        if composite_df is not None and 'composite_score' in composite_df.columns:
+            # Score-based weights
+            scores_dict = dict(zip(
+                composite_df['ticker'].str.upper(), 
+                composite_df['composite_score']
+            ))
+            stock_scores = {t.upper(): scores_dict.get(t.upper(), 0.5) for t in current_holdings}
+            
+            # Power-adjusted weighting
+            gamma = 1.5
+            scores_powered = {t: s ** gamma for t, s in stock_scores.items()}
+            total_score = sum(scores_powered.values())
+            
+            if total_score > 0:
+                return [
+                    {'ticker': str(t).upper(), 'weight_pct': round((scores_powered[t] / total_score) * 100, 2)}
+                    for t in [t.upper() for t in current_holdings]
+                ]
+        
+        # Fallback to equal weights
         weight_per_stock = 100.0 / len(current_holdings)
         return [
             {'ticker': str(t).upper(), 'weight_pct': weight_per_stock}
@@ -226,10 +253,32 @@ def regenerate_target_from_buckets(
         for _, row in candidates.head(slots_to_fill).iterrows():
             kept_stocks.append(row['ticker'])
     
-    # Build target allocations
+    # Build target allocations with score-based weights (matching original portfolio builder)
     if kept_stocks:
-        weight_per_stock = 100.0 / len(kept_stocks)
-        return [{'ticker': t, 'weight_pct': weight_per_stock} for t in kept_stocks]
+        # Get scores for each kept stock from eligible DataFrame
+        stock_scores = {}
+        for ticker in kept_stocks:
+            stock_data = eligible[eligible['ticker'].str.upper() == ticker.upper()]
+            if len(stock_data) > 0:
+                stock_scores[ticker] = float(stock_data.iloc[0]['composite_score'])
+            else:
+                stock_scores[ticker] = 0.5  # Default if not found
+        
+        # Power-adjusted weighting (gamma=1.5 like portfolio builder)
+        gamma = 1.5
+        scores_powered = {t: s ** gamma for t, s in stock_scores.items()}
+        total_score = sum(scores_powered.values())
+        
+        if total_score > 0:
+            allocations = []
+            for ticker in kept_stocks:
+                weight_pct = (scores_powered[ticker] / total_score) * 100
+                allocations.append({'ticker': ticker, 'weight_pct': round(weight_pct, 2)})
+            return allocations
+        else:
+            # Fallback to equal weights if no scores
+            weight_per_stock = 100.0 / len(kept_stocks)
+            return [{'ticker': t, 'weight_pct': weight_per_stock} for t in kept_stocks]
     return []
 
 

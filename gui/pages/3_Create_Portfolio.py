@@ -12,6 +12,7 @@ Mirrors the core flow of app.py with three additions:
 # package (and its siblings) are resolvable when Streamlit executes this file.
 # =============================================================================
 
+import os
 import sys
 from pathlib import Path
 
@@ -285,34 +286,35 @@ def _render_performance_section(backtest, portfolio, capital) -> None:
         n_periods = backtest.get('n_periods', 252)
         n_months = min(n_periods // 21, 120)  # Convert trading days to months, cap at 120
         
-        # Default to conservative tier for compliance
-        mc_result = run_monte_carlo(
-            initial_capital=capital,
-            annual_return=annual_return,
-            annual_vol=annual_vol,
-            spy_return=spy_return,
-            spy_vol=spy_vol,
-            n_simulations=10000,
-            time_horizons=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
-            n_months=n_months,
-            correlation=0.5,  # Will be calculated from data if available
-            tier='conservative',  # Default to conservative
-            portfolio_returns=portfolio_returns,
-            spy_returns=spy_returns_arr
-        )
-        
-        render_section_header("FUTURE PROJECTIONS (MONTE CARLO)")
-        
-        backtest_data = None
-        if backtest.get('cumulative_portfolio') is not None:
-            backtest_data = {
-                'cumulative': backtest['cumulative_portfolio'],
-            }
-        
-        render_monte_carlo_chart(mc_result, backtest_data=backtest_data)
-        
-        with st.expander("📉 Stress Scenario Details"):
-            render_stress_scenario_details(mc_result)
+        # Show Monte Carlo section only if enabled via environment variable
+        if os.environ.get('SHOW_MONTE_CARLO', 'false').lower() == 'true':
+            mc_result = run_monte_carlo(
+                initial_capital=capital,
+                annual_return=annual_return,
+                annual_vol=annual_vol,
+                spy_return=spy_return,
+                spy_vol=spy_vol,
+                n_simulations=10000,
+                time_horizons=[1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+                n_months=n_months,
+                correlation=0.5,
+                tier='conservative',
+                portfolio_returns=portfolio_returns,
+                spy_returns=spy_returns_arr
+            )
+            
+            render_section_header("FUTURE PROJECTIONS (MONTE CARLO)")
+            
+            backtest_data = None
+            if backtest.get('cumulative_portfolio') is not None:
+                backtest_data = {
+                    'cumulative': backtest['cumulative_portfolio'],
+                }
+            
+            render_monte_carlo_chart(mc_result, backtest_data=backtest_data)
+            
+            with st.expander("📉 Stress Scenario Details"):
+                render_stress_scenario_details(mc_result)
     else:
         st.warning(
             "⚠️ Backtest data not available. "
